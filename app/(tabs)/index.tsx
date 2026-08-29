@@ -1,94 +1,84 @@
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useState } from 'react';
-import { Button, StyleSheet, Text, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { FlatList, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 
-export default function App() {
-  // 1. Estado de permisos del hardware
-  const [permiso, pedirPermiso] = useCameraPermissions();
-  
-  // 2. Estado de la IA (Aquí es donde tu compañero inyectará los datos luego)
-  const [etiquetaIA, setEtiquetaIA] = useState("Buscando producto...");
+// 1. Le enseñamos a TypeScript cómo es un "Producto"
+interface Producto {
+  id: string;
+  nombre: string;
+  marca: string;
+  vencimiento: string;
+  categoria: string;
+  fechaRegistro: string;
+}
 
-  // Cargando permisos...
-  if (!permiso) {
-    return <View />;
-  }
+const ASYNC_STORAGE_KEY = '@inventario_abuelitas_v4';
 
-  // Si la abuelita aún no ha dado permiso para usar la cámara
-  if (!permiso.granted) {
-    return (
-      <View style={styles.contenedorPermiso}>
-        <Text style={styles.textoAyuda}>Necesitamos acceso a tu cámara para leer los productos.</Text>
-        <Button onPress={pedirPermiso} title="Otorgar Permiso" color="#2196F3" />
-      </View>
-    );
-  }
+export default function InicioScreen() {
+  // 2. Le decimos que el inventario será una lista de Productos (esto quita el error "never")
+  const [inventario, setInventario] = useState<Producto[]>([]);
 
-  // Interfaz Principal de la Cámara
+  useFocusEffect(
+    useCallback(() => {
+      cargarInventarioLocal();
+    }, [])
+  );
+
+  const cargarInventarioLocal = async () => {
+    try {
+      const datos = await AsyncStorage.getItem(ASYNC_STORAGE_KEY);
+      if (datos) setInventario(JSON.parse(datos));
+    } catch (e) {
+      console.error("Error al cargar memoria", e);
+    }
+  };
+
   return (
-    <View style={styles.contenedor}>
-      {/* Componente del hardware de la cámara */}
-      <CameraView style={styles.camara} facing="back">
+    <SafeAreaView style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.tituloHeader}>Mi Despensa</Text>
+      </View>
+      
+      <View style={styles.inventarioContainer}>
+        <Text style={styles.subtituloLista}>Productos Guardados ({inventario.length}):</Text>
         
-        {/* Capa visual sobre la cámara (UI Overlay) */}
-        <View style={styles.capaSuperpuesta}>
-          
-          {/* Recuadro de detección con alto contraste */}
-          <View style={styles.cajaResultado}>
-            <Text style={styles.textoDeteccion}>
-              {etiquetaIA}
-            </Text>
-          </View>
-
-        </View>
-      </CameraView>
-    </View>
+        {inventario.length === 0 ? (
+          <Text style={styles.textoVacio}>Aún no hay productos. Toca la cámara para escanear.</Text>
+        ) : (
+          <FlatList
+            data={inventario}
+            keyExtractor={(item) => item.id}
+            style={styles.lista}
+            renderItem={({ item }) => (
+              <View style={styles.itemTarjeta}>
+                <View style={styles.itemFila}>
+                  <Text style={styles.itemNombre}>{item.nombre}</Text>
+                  <Text style={styles.itemFechaReg}>{item.fechaRegistro}</Text>
+                </View>
+                <Text style={styles.itemDetalle}>Marca: {item.marca} | Tipo: {item.categoria}</Text>
+                <Text style={styles.itemVencimiento}>Vence: {item.vencimiento}</Text>
+              </View>
+            )}
+          />
+        )}
+      </View>
+    </SafeAreaView>
   );
 }
 
-// 3. Hoja de Estilos (Arquitectura CSS para Accesibilidad)
 const styles = StyleSheet.create({
-  contenedor: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  camara: {
-    flex: 1,
-  },
-  capaSuperpuesta: {
-    flex: 1,
-    backgroundColor: 'transparent',
-    justifyContent: 'flex-end', // Empuja la caja hacia abajo
-    paddingBottom: 50,
-    paddingHorizontal: 20,
-  },
-  cajaResultado: {
-    backgroundColor: 'rgba(0, 0, 0, 0.8)', // Fondo oscuro semitransparente para alto contraste
-    padding: 25,
-    borderRadius: 20,
-    alignItems: 'center',
-    // Sombra para que resalte
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 5,
-    elevation: 10,
-  },
-  textoDeteccion: {
-    fontSize: 28, // Letra gigante ideal para abuelitas
-    color: '#4CAF50', // Verde brillante
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  contenedorPermiso: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 30,
-  },
-  textoAyuda: {
-    fontSize: 22,
-    textAlign: 'center',
-    marginBottom: 20,
-  }
+  container: { flex: 1, backgroundColor: '#f4f6f8' },
+  header: { backgroundColor: '#1b5e20', paddingVertical: 15, alignItems: 'center' },
+  tituloHeader: { color: '#ffffff', fontSize: 22, fontWeight: 'bold' },
+  inventarioContainer: { flex: 1, padding: 15 },
+  subtituloLista: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 10 },
+  textoVacio: { fontSize: 16, color: '#666', textAlign: 'center', marginTop: 50 },
+  lista: { flex: 1 },
+  itemTarjeta: { backgroundColor: '#fff', padding: 15, borderRadius: 12, marginBottom: 10, elevation: 2 },
+  itemFila: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  itemNombre: { fontSize: 18, fontWeight: 'bold', color: '#111' },
+  itemFechaReg: { fontSize: 12, color: '#888' },
+  itemDetalle: { fontSize: 14, color: '#555', marginTop: 4 },
+  itemVencimiento: { fontSize: 15, color: '#c62828', fontWeight: 'bold', marginTop: 2 },
 });
