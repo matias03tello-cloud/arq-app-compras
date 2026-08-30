@@ -1,84 +1,57 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { FlatList, SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import React from 'react';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-// 1. Le enseñamos a TypeScript cómo es un "Producto"
-interface Producto {
-  id: string;
-  nombre: string;
-  marca: string;
-  vencimiento: string;
-  categoria: string;
-  fechaRegistro: string;
-}
+export default function PantallaInicio() {
+  const productosGuardados = [
+    { id: '1', nombre: 'Banana', diasParaVencer: 2, tipo: 'Fruta' },
+    { id: '2', nombre: 'Leche Descremada', diasParaVencer: 1, tipo: 'Lácteo' },
+    { id: '3', nombre: 'Melatonina 3mg', diasParaVencer: -5, tipo: 'Medicamento' },
+  ];
 
-const ASYNC_STORAGE_KEY = '@inventario_abuelitas_v4';
-
-export default function InicioScreen() {
-  // 2. Le decimos que el inventario será una lista de Productos (esto quita el error "never")
-  const [inventario, setInventario] = useState<Producto[]>([]);
-
-  useFocusEffect(
-    useCallback(() => {
-      cargarInventarioLocal();
-    }, [])
-  );
-
-  const cargarInventarioLocal = async () => {
-    try {
-      const datos = await AsyncStorage.getItem(ASYNC_STORAGE_KEY);
-      if (datos) setInventario(JSON.parse(datos));
-    } catch (e) {
-      console.error("Error al cargar memoria", e);
-    }
-  };
+  const productosPorVencer = productosGuardados.filter(prod => prod.diasParaVencer <= 3);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.tituloHeader}>Mi Despensa</Text>
-      </View>
-      
-      <View style={styles.inventarioContainer}>
-        <Text style={styles.subtituloLista}>Productos Guardados ({inventario.length}):</Text>
+    <ScrollView style={styles.fondo}>
+      <View style={styles.contenedor}>
         
-        {inventario.length === 0 ? (
-          <Text style={styles.textoVacio}>Aún no hay productos. Toca la cámara para escanear.</Text>
-        ) : (
-          <FlatList
-            data={inventario}
-            keyExtractor={(item) => item.id}
-            style={styles.lista}
-            renderItem={({ item }) => (
-              <View style={styles.itemTarjeta}>
-                <View style={styles.itemFila}>
-                  <Text style={styles.itemNombre}>{item.nombre}</Text>
-                  <Text style={styles.itemFechaReg}>{item.fechaRegistro}</Text>
-                </View>
-                <Text style={styles.itemDetalle}>Marca: {item.marca} | Tipo: {item.categoria}</Text>
-                <Text style={styles.itemVencimiento}>Vence: {item.vencimiento}</Text>
-              </View>
-            )}
-          />
-        )}
+        <Text style={styles.tituloSecundario}>Resumen de tu Despensa</Text>
+        <Text style={styles.textoNormal}>
+          Tienes un total de <Text style={styles.textoResaltado}>{productosGuardados.length}</Text> productos guardados.
+        </Text>
+
+        <View style={styles.tarjetaAlerta}>
+          <Text style={styles.tituloAlerta}>⚠️ ¡Atención!</Text>
+          <Text style={styles.subtituloAlerta}>
+            {productosPorVencer.length} productos están por vencer o ya vencieron:
+          </Text>
+          
+          {productosPorVencer.map((producto) => (
+            <View key={producto.id} style={styles.itemAlerta}>
+              <Text style={styles.textoItemAlerta}>• {producto.nombre}</Text>
+              <Text style={styles.textoItemVencimiento}>
+                {producto.diasParaVencer < 0 
+                  ? 'Ya venció' 
+                  : `Vence en ${producto.diasParaVencer} día(s)`}
+              </Text>
+            </View>
+          ))}
+        </View>
+
       </View>
-    </SafeAreaView>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f4f6f8' },
-  header: { backgroundColor: '#1b5e20', paddingVertical: 15, alignItems: 'center' },
-  tituloHeader: { color: '#ffffff', fontSize: 22, fontWeight: 'bold' },
-  inventarioContainer: { flex: 1, padding: 15 },
-  subtituloLista: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 10 },
-  textoVacio: { fontSize: 16, color: '#666', textAlign: 'center', marginTop: 50 },
-  lista: { flex: 1 },
-  itemTarjeta: { backgroundColor: '#fff', padding: 15, borderRadius: 12, marginBottom: 10, elevation: 2 },
-  itemFila: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  itemNombre: { fontSize: 18, fontWeight: 'bold', color: '#111' },
-  itemFechaReg: { fontSize: 12, color: '#888' },
-  itemDetalle: { fontSize: 14, color: '#555', marginTop: 4 },
-  itemVencimiento: { fontSize: 15, color: '#c62828', fontWeight: 'bold', marginTop: 2 },
+  fondo: { flex: 1, backgroundColor: '#F5F5F5' },
+  contenedor: { padding: 20, paddingTop: 40 },
+  tituloSecundario: { fontSize: 24, fontWeight: 'bold', color: '#333', marginBottom: 10 },
+  textoNormal: { fontSize: 18, color: '#555', marginBottom: 30 },
+  textoResaltado: { fontWeight: 'bold', color: '#2E7D32', fontSize: 22 },
+  tarjetaAlerta: { backgroundColor: '#FFF3E0', borderColor: '#FF9800', borderWidth: 2, borderRadius: 15, padding: 20, marginBottom: 40 },
+  tituloAlerta: { fontSize: 26, fontWeight: 'bold', color: '#D84315', marginBottom: 5 },
+  subtituloAlerta: { fontSize: 18, color: '#D84315', marginBottom: 15 },
+  itemAlerta: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10, borderBottomWidth: 1, borderBottomColor: '#FFE0B2', paddingBottom: 5 },
+  textoItemAlerta: { fontSize: 18, fontWeight: '600', color: '#333' },
+  textoItemVencimiento: { fontSize: 18, fontWeight: 'bold', color: '#D32F2F' }
 });
