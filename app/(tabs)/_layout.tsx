@@ -7,7 +7,7 @@ export default function LayoutPestanas() {
     <Tabs screenOptions={{
       tabBarActiveTintColor: '#2E7D32',
       tabBarInactiveTintColor: '#888',
-      tabBarStyle: { height: 65, paddingBottom: 10, paddingTop: 5 },
+      tabBarStyle: { height: 80, paddingBottom: 25, paddingTop: 5 },
       headerShown: false,
     }}>
       

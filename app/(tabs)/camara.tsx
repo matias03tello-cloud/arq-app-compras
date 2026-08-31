@@ -11,7 +11,8 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
+  useColorScheme,
+  View
 } from 'react-native';
 
 const GEMINI_API_KEY: string = "AQ.Ab8RN6LWApTODRrtRME3OKQu5_9ZCD3LBh-ZsxgJPJCQ5NnJjg";
@@ -31,9 +32,6 @@ export interface Producto {
 
 type PasoFlujo = 'INICIAL' | 'FOTO_PRODUCTO' | 'FOTO_FECHA' | 'FRUTA_DIRECTA';
 
-/**
- * Extracción de fechas: Prioriza DD/MM/AAAA y luego MM/AAAA.
- */
 const extraerFechaLocal = (textoOCR: string): string | null => {
   if (!textoOCR) return null;
 
@@ -44,7 +42,6 @@ const extraerFechaLocal = (textoOCR: string): string | null => {
     .replace(/\bOS[/\.-]/g, '05/')
     .replace(/[\.\s-]+/g, '/');
 
-  // 1. Patrón para Día/Mes/Año (Ej: 27/02/2027 o 27/02/27)
   const patronDiaMesAnio = /\b(0?[1-9]|[12]\d|3[01])\/(0[1-9]|1[0-2])\/(2[4-9]|[3-4][0-9]|202[4-9]|203[0-9])\b/g;
   let match = patronDiaMesAnio.exec(texto);
   if (match) {
@@ -55,7 +52,6 @@ const extraerFechaLocal = (textoOCR: string): string | null => {
     return `${dia}/${mes}/${anio}`;
   }
 
-  // 2. Patrón para Mes/Año (Ej: 05/29 -> 05/2029)
   const patronMesAnio = /\b(0[1-9]|1[0-2])\/(2[4-9]|[3-4][0-9]|202[4-9]|203[0-9])\b/g;
   match = patronMesAnio.exec(texto);
   if (match) {
@@ -83,11 +79,19 @@ export default function AppHibrida() {
   const cameraRef = useRef<any>(null);
   const bloqueadoAutoScan = useRef<boolean>(false);
 
+  // --- PALETA DINÁMICA DE COLORES ---
+  const temaSistema = useColorScheme();
+  const isDark = temaSistema === 'dark';
+  const colorFondo = isDark ? '#000000' : '#f4f6f8';
+  const colorTarjeta = isDark ? '#1C1C1E' : '#ffffff';
+  const colorTexto = isDark ? '#FFFFFF' : '#333333';
+  const colorSubtexto = isDark ? '#8E8E93' : '#555555';
+  const colorBorde = isDark ? '#38383A' : '#e0e0e0';
+
   useEffect(() => {
     cargarInventarioLocal();
   }, []);
 
-  // Bucle de auto-lectura local (intervalo ajustado a 2.5s para no saturar memoria)
   useEffect(() => {
     let intervalo: ReturnType<typeof setInterval>;
 
@@ -174,7 +178,6 @@ export default function AppHibrida() {
 
       if (!fotoOriginal?.uri) return null;
 
-      // 1. Devolvemos el ancho a 800 para que las coordenadas de recorte no exploten
       let acciones: any[] = [{ resize: { width: 800 } }];
 
       if (soloCentro) {
@@ -182,7 +185,7 @@ export default function AppHibrida() {
           crop: {
             originX: 100,
             originY: 250,
-            width: 600, // Ahora sí cabe dentro de los 800
+            width: 600,
             height: 350,
           },
         });
@@ -191,13 +194,13 @@ export default function AppHibrida() {
       return await manipulateAsync(
         fotoOriginal.uri,
         acciones,
-        // 2. Mantenemos el compress en 0.3 (¡Esta es la clave de la velocidad!)
         { compress: 0.3, format: SaveFormat.JPEG, base64: true }
       );
     } catch (err) {
       return null;
     }
   };
+  
   const autoEscanearMLKit = async () => {
     if (!datosTemporales || bloqueadoAutoScan.current) return;
     try {
@@ -220,7 +223,7 @@ export default function AppHibrida() {
         }
       }
     } catch (e) {
-      // Ignorar errores de captura rápida
+      // Ignorar errores
     } finally {
       setBuscandoAuto(false);
       bloqueadoAutoScan.current = false;
@@ -339,11 +342,11 @@ export default function AppHibrida() {
     setPaso('INICIAL');
   };
 
-  if (!permiso) return <View style={styles.center}><ActivityIndicator size="large" color="#1b5e20" /></View>;
+  if (!permiso) return <View style={[styles.center, { backgroundColor: colorFondo }]}><ActivityIndicator size="large" color="#1b5e20" /></View>;
   if (!permiso.granted) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.textoGeneral}>Necesitamos acceso a la cámara 📷</Text>
+      <View style={[styles.center, { backgroundColor: colorFondo }]}>
+        <Text style={[styles.textoGeneral, { color: colorTexto }]}>Necesitamos acceso a la cámara 📷</Text>
         <TouchableOpacity style={styles.botonGiganteVerde} onPress={pedirPermiso}>
           <Text style={styles.textoBotonGigante}>DAR PERMISO</Text>
         </TouchableOpacity>
@@ -352,7 +355,7 @@ export default function AppHibrida() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colorFondo }]}>
       <View style={styles.header}>
         <Text style={styles.tituloHeader}>Lector Inteligente de Productos</Text>
       </View>
@@ -373,6 +376,20 @@ export default function AppHibrida() {
               <Text style={styles.textoFlash}>{flashEncendido ? "💡 LUZ ON" : "🔦 LUZ OFF"}</Text>
             </TouchableOpacity>
 
+            {/* MÁSCARA DE ESCANEO DE CÓDIGO DE BARRAS */}
+            {paso === 'INICIAL' && !procesando && (
+              <View style={styles.overlayEnfoqueContainer}>
+                <View style={styles.mascaraEscaneoBox}>
+                  <View style={[styles.esquina, styles.esquinaTL]} />
+                  <View style={[styles.esquina, styles.esquinaTR]} />
+                  <View style={[styles.esquina, styles.esquinaBL]} />
+                  <View style={[styles.esquina, styles.esquinaBR]} />
+                </View>
+                <Text style={styles.textoMascara}>Apunta el código de barras aquí</Text>
+              </View>
+            )}
+
+            {/* MÁSCARA DE FECHA DE VENCIMIENTO */}
             {paso === 'FOTO_FECHA' && (
               <View style={styles.overlayEnfoqueContainer}>
                 <View style={[styles.recuadroEnfoque, buscandoAuto && styles.recuadroEscaneando]}>
@@ -384,7 +401,8 @@ export default function AppHibrida() {
             )}
           </CameraView>
 
-          <View style={styles.panelAcciones}>
+          {/* APLICANDO COLOR DE TARJETA DINÁMICA AQUÍ */}
+          <View style={[styles.panelAcciones, { backgroundColor: colorTarjeta }]}>
             {paso === 'INICIAL' && (
               <View style={styles.bannerInfo}>
                 <Text style={styles.textoBannerTitulo}>🔍 Apunta a un Código de Barras</Text>
@@ -470,19 +488,19 @@ export default function AppHibrida() {
             <Text style={styles.textoBotonGigante}>📸 ESCANEAR OTRO PRODUCTO</Text>
           </TouchableOpacity>
 
-          <Text style={styles.subtituloLista}>Productos Guardados ({inventario.length}):</Text>
+          <Text style={[styles.subtituloLista, { color: colorTexto }]}>Productos Guardados ({inventario.length}):</Text>
 
           <FlatList
             data={inventario}
             keyExtractor={(item) => item.id}
             style={styles.lista}
             renderItem={({ item }) => (
-              <View style={styles.itemTarjeta}>
+              <View style={[styles.itemTarjeta, { backgroundColor: colorTarjeta, borderColor: colorBorde, borderWidth: 1 }]}>
                 <View style={styles.itemFila}>
-                  <Text style={styles.itemNombre}>{item.nombre}</Text>
+                  <Text style={[styles.itemNombre, { color: colorTexto }]}>{item.nombre}</Text>
                   <Text style={styles.itemFechaReg}>{item.fechaRegistro}</Text>
                 </View>
-                <Text style={styles.itemDetalle}>Marca: {item.marca} | Tipo: {item.categoria}</Text>
+                <Text style={[styles.itemDetalle, { color: colorSubtexto }]}>Marca: {item.marca} | Tipo: {item.categoria}</Text>
                 <Text style={styles.itemVencimiento}>Vence: {item.vencimiento}</Text>
               </View>
             )}
@@ -494,11 +512,11 @@ export default function AppHibrida() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f4f6f8' },
+  container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   header: { backgroundColor: '#1b5e20', paddingVertical: 15, alignItems: 'center' },
   tituloHeader: { color: '#ffffff', fontSize: 22, fontWeight: 'bold' },
-  textoGeneral: { fontSize: 18, color: '#333', marginBottom: 20, textAlign: 'center' },
+  textoGeneral: { fontSize: 18, marginBottom: 20, textAlign: 'center' },
   camaraContainer: { flex: 1, margin: 10, borderRadius: 20, overflow: 'hidden', backgroundColor: '#000' },
   camara: { flex: 1, padding: 10 },
   botonFlash: { alignSelf: 'flex-end', backgroundColor: 'rgba(0,0,0,0.6)', padding: 10, borderRadius: 15, zIndex: 10 },
@@ -519,7 +537,7 @@ const styles = StyleSheet.create({
     borderColor: '#ff1744',
     borderRadius: 12,
     backgroundColor: 'rgba(255, 23, 68, 0.1)',
-    justifyContent: 'center', // CORREGIDO AQUÍ
+    justifyContent: 'center',
     alignItems: 'center',
     padding: 10,
   },
@@ -537,7 +555,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 4,
   },
-  panelAcciones: { backgroundColor: '#fff', padding: 15 },
+  panelAcciones: { padding: 15, paddingBottom: 35 },
   bannerInfo: { backgroundColor: '#e8f5e9', padding: 12, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: '#a5d6a7' },
   textoBannerTitulo: { color: '#1b5e20', fontWeight: 'bold', fontSize: 16 },
   textoBannerSub: { color: '#555', fontSize: 13, marginTop: 2 },
@@ -553,12 +571,37 @@ const styles = StyleSheet.create({
   badgeExito: { color: '#2e7d32', fontWeight: 'bold', fontSize: 14 },
   nombreRegistrado: { fontSize: 24, fontWeight: 'bold', color: '#1b5e20', marginVertical: 4 },
   detalleRegistrado: { fontSize: 15, color: '#444' },
-  subtituloLista: { fontSize: 18, fontWeight: 'bold', color: '#333', marginTop: 15, marginBottom: 10 },
+  subtituloLista: { fontSize: 18, fontWeight: 'bold', marginTop: 15, marginBottom: 10 },
   lista: { flex: 1 },
-  itemTarjeta: { backgroundColor: '#fff', padding: 15, borderRadius: 12, marginBottom: 10, elevation: 2 },
+  itemTarjeta: { padding: 15, borderRadius: 12, marginBottom: 10, elevation: 2 },
   itemFila: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  itemNombre: { fontSize: 18, fontWeight: 'bold', color: '#111' },
+  itemNombre: { fontSize: 18, fontWeight: 'bold' },
   itemFechaReg: { fontSize: 12, color: '#888' },
-  itemDetalle: { fontSize: 14, color: '#555', marginTop: 4 },
+  itemDetalle: { fontSize: 14, marginTop: 4 },
   itemVencimiento: { fontSize: 15, color: '#c62828', fontWeight: 'bold', marginTop: 2 },
+  
+  mascaraEscaneoBox: {
+    width: 250,
+    height: 150,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    backgroundColor: 'rgba(255,255,255,0.1)'
+  },
+  textoMascara: {
+    color: '#FFF',
+    marginTop: 20,
+    fontSize: 14,
+    fontWeight: 'bold',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    overflow: 'hidden'
+  },
+  esquina: { position: 'absolute', width: 30, height: 30, borderColor: '#00E676' },
+  esquinaTL: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 10 },
+  esquinaTR: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 10 },
+  esquinaBL: { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4, borderBottomLeftRadius: 10 },
+  esquinaBR: { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4, borderBottomRightRadius: 10 },
 });

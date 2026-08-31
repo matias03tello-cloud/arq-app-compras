@@ -7,12 +7,20 @@
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
-      "image": "./assets/images/splash.png",
+      "image": "./assets/images/icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
     "plugins": [
       "expo-camera"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d6802ebe-a08b-4259-ab15-9e5bdc6a490e"
+      }
+    },
+    "android": {
+      "package": "com.k1ng03.arqappcompras"
+    }
   }
 }
