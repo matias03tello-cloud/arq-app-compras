@@ -1,46 +1,44 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import {
+  migrarInventarioLocalAFirestore,
+  obtenerEstadoVencimiento,
+  obtenerInventario,
+  ordenarPorVencimiento,
+} from '../../services/inventarioFirestore';
+import { ProductoInventario } from '../../services/productos';
 
-const ASYNC_STORAGE_KEY = '@inventario_abuelitas_v4';
+const COLOR_PUNTO = {
+  vencido: '#212121',
+  urgente: '#F44336',
+  pronto: '#FF9800',
+  atencion: '#FBC02D',
+  bien: '#4CAF50',
+  'sin-fecha': '#90A4AE',
+};
 
 export default function PantallaCalendario() {
-  const [productosOrdenados, setProductosOrdenados] = useState<any[]>([]);
-  
-  // 1. TEMA GLOBAL
-  const temaSistema = useColorScheme();
-  const isDark = temaSistema === 'dark';
-
-  // 2. COLORES DINÁMICOS
-  const colorFondo = isDark ? '#000000' : '#F2F2F7';
-  const colorTarjeta = isDark ? '#1C1C1E' : '#FFFFFF';
-  const colorTexto = isDark ? '#FFFFFF' : '#000000';
-  const colorSubtexto = isDark ? '#8E8E93' : '#8E8E93';
+  const [productos, setProductos] = useState<ProductoInventario[]>([]);
+  const isDark = useColorScheme() === 'dark';
+  const colorFondo = isDark ? '#000' : '#F2F2F7';
+  const colorTarjeta = isDark ? '#1C1C1E' : '#FFF';
+  const colorTexto = isDark ? '#FFF' : '#000';
+  const colorSubtexto = '#8E8E93';
   const colorLinea = isDark ? '#38383A' : '#D1D1D6';
-
-  const convertirAFecha = (fechaStr: string) => {
-    if (!fechaStr || fechaStr === 'No visible' || fechaStr === 'Sin fecha') return new Date(2100, 0, 1);
-    const partes = fechaStr.split('/');
-    if (partes.length === 3) return new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
-    if (partes.length === 2) return new Date(parseInt(partes[1]), parseInt(partes[0]) - 1, 1);
-    return new Date(2100, 0, 1);
-  };
 
   useFocusEffect(
     useCallback(() => {
-      const cargarYOrdenar = async () => {
+      const cargar = async () => {
         try {
-          const datos = await AsyncStorage.getItem(ASYNC_STORAGE_KEY);
-          if (datos) {
-            const inventario = JSON.parse(datos);
-            // Ordenar cronológicamente
-            inventario.sort((a: any, b: any) => convertirAFecha(a.vencimiento).getTime() - convertirAFecha(b.vencimiento).getTime());
-            setProductosOrdenados(inventario);
-          }
-        } catch (e) { console.error(e); }
+          await migrarInventarioLocalAFirestore();
+          setProductos(ordenarPorVencimiento(await obtenerInventario()));
+        } catch (error) {
+          console.error('Error cargando calendario:', error);
+        }
       };
-      cargarYOrdenar();
+      cargar();
     }, [])
   );
 
@@ -48,29 +46,37 @@ export default function PantallaCalendario() {
     <View style={[styles.fondo, { backgroundColor: colorFondo }]}>
       <View style={styles.cabecera}>
         <Text style={[styles.titulo, { color: colorTexto }]}>Cronograma</Text>
-        <Text style={{ color: colorSubtexto }}>Próximos vencimientos</Text>
+        <Text style={{ color: colorSubtexto }}>Vencimientos ordenados por prioridad</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        {productosOrdenados.length === 0 ? (
-          <Text style={[styles.textoVacio, { color: colorSubtexto }]}>No hay fechas registradas.</Text>
-        ) : (
-          productosOrdenados.map((item, index) => (
+        {productos.length === 0 ? (
+          <View style={styles.vacioContainer}>
+            <Ionicons name="calendar-outline" size={54} color={colorSubtexto} />
+            <Text style={[styles.textoVacio, { color: colorSubtexto }]}>No hay fechas registradas.</Text>
+          </View>
+        ) : productos.map((item, index) => {
+          const estado = obtenerEstadoVencimiento(item.vencimiento);
+          const color = COLOR_PUNTO[estado.estado];
+
+          return (
             <View key={item.id} style={styles.itemTimeline}>
-              {/* Línea y Punto */}
               <View style={styles.columnaLinea}>
-                <View style={[styles.punto, { backgroundColor: index === 0 ? '#FF3B30' : '#34C759' }]} />
-                {index !== productosOrdenados.length - 1 && <View style={[styles.lineaVertical, { backgroundColor: colorLinea }]} />}
+                <View style={[styles.punto, { backgroundColor: color }]} />
+                {index !== productos.length - 1 && <View style={[styles.lineaVertical, { backgroundColor: colorLinea }]} />}
               </View>
-              
-              {/* Tarjeta de Información */}
-              <View style={[styles.tarjeta, { backgroundColor: colorTarjeta }]}>
-                <Text style={[styles.fecha, { color: colorTexto }]}>{item.vencimiento}</Text>
-                <Text style={[styles.nombre, { color: colorSubtexto }]}>{item.nombre} ({item.marca})</Text>
+
+              <View style={[styles.tarjeta, { backgroundColor: colorTarjeta, borderLeftColor: color }]}>
+                <View style={styles.filaSuperior}>
+                  <Text style={[styles.fecha, { color: colorTexto }]}>{item.vencimiento}</Text>
+                  <Text style={[styles.estado, { color }]}>{estado.etiqueta}</Text>
+                </View>
+                <Text style={[styles.nombre, { color: colorTexto }]}>{item.nombre}</Text>
+                <Text style={[styles.detalle, { color: colorSubtexto }]}>{item.marca} • x{item.cantidad || 1} • {item.categoria}</Text>
               </View>
             </View>
-          ))
-        )}
+          );
+        })}
       </ScrollView>
     </View>
   );
@@ -80,13 +86,17 @@ const styles = StyleSheet.create({
   fondo: { flex: 1 },
   cabecera: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20 },
   titulo: { fontSize: 34, fontWeight: 'bold' },
-  scroll: { paddingHorizontal: 20, paddingBottom: 100 },
-  itemTimeline: { flexDirection: 'row', minHeight: 80 },
-  columnaLinea: { width: 30, alignItems: 'center' },
-  punto: { width: 14, height: 14, borderRadius: 7, marginTop: 20, zIndex: 10 },
-  lineaVertical: { width: 2, flex: 1, marginTop: -5, marginBottom: -20 },
-  tarjeta: { flex: 1, padding: 15, borderRadius: 12, marginLeft: 15, marginBottom: 15, justifyContent: 'center' },
-  fecha: { fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
-  nombre: { fontSize: 15 },
-  textoVacio: { textAlign: 'center', marginTop: 50, fontSize: 16 }
+  scroll: { paddingHorizontal: 20, paddingBottom: 110 },
+  itemTimeline: { flexDirection: 'row', minHeight: 100 },
+  columnaLinea: { width: 28, alignItems: 'center' },
+  punto: { width: 16, height: 16, borderRadius: 8, marginTop: 23, zIndex: 10 },
+  lineaVertical: { width: 2, flex: 1, marginTop: -2, marginBottom: -22 },
+  tarjeta: { flex: 1, padding: 15, borderRadius: 12, marginLeft: 12, marginBottom: 15, justifyContent: 'center', borderLeftWidth: 4 },
+  filaSuperior: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  fecha: { fontSize: 17, fontWeight: 'bold' },
+  estado: { fontSize: 12, fontWeight: 'bold', textAlign: 'right' },
+  nombre: { fontSize: 16, fontWeight: '700', marginTop: 7 },
+  detalle: { fontSize: 13, marginTop: 3 },
+  vacioContainer: { alignItems: 'center', marginTop: 70 },
+  textoVacio: { textAlign: 'center', marginTop: 12, fontSize: 16 },
 });

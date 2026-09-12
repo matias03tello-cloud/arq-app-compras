@@ -1,68 +1,115 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { useEffect, useState } from 'react';
-import { Alert, Appearance, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import {
+  Alert,
+  Appearance,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TouchableOpacity,
+  useColorScheme,
+  View,
+} from 'react-native';
+import { auth, cerrarSesion } from '../../services/auth';
+import { vaciarInventarioUsuario } from '../../services/inventarioFirestore';
 
 const THEME_KEY = '@preferencia_tema';
-const ASYNC_STORAGE_KEY = '@inventario_abuelitas_v4';
 
 export default function PantallaAjustes() {
-  // Detecta el tema actual del celular
   const esquemaSistema = useColorScheme();
   const [temaSeleccionado, setTemaSeleccionado] = useState<'light' | 'dark' | 'system'>('system');
   const [notificaciones, setNotificaciones] = useState(true);
 
-  // Calcula si visualmente estamos en modo oscuro
-  const isDark = temaSeleccionado === 'system' ? esquemaSistema === 'dark' : temaSeleccionado === 'dark';
+  const isDark = temaSeleccionado === 'system'
+    ? esquemaSistema === 'dark'
+    : temaSeleccionado === 'dark';
 
-  // Cargar la preferencia del tema al entrar
+  const usuario = auth.currentUser;
+  const nombre = usuario?.displayName || 'Usuario FrescApp';
+  const email = usuario?.email || '';
+  const iniciales = nombre
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((parte) => parte[0]?.toUpperCase())
+    .join('') || 'FA';
+
   useEffect(() => {
     const cargarTema = async () => {
       try {
         const temaGuardado = await AsyncStorage.getItem(THEME_KEY);
         if (temaGuardado === 'light' || temaGuardado === 'dark' || temaGuardado === 'system') {
           setTemaSeleccionado(temaGuardado);
-          // Forzar el tema en la app
-          Appearance.setColorScheme(temaGuardado === 'system' ? null : temaGuardado);
+          Appearance.setColorScheme(temaGuardado === 'system' ? (null as any) : temaGuardado);
         }
-      } catch (e) {
-        console.error("Error cargando tema", e);
+      } catch (error) {
+        console.error('Error cargando tema:', error);
       }
     };
+
     cargarTema();
   }, []);
 
-  // Función para cambiar y guardar el tema
   const cambiarTema = async (nuevoTema: 'light' | 'dark' | 'system') => {
-    setTemaSeleccionado(nuevoTema);
-    Appearance.setColorScheme(nuevoTema === 'system' ? null : nuevoTema);
-    await AsyncStorage.setItem(THEME_KEY, nuevoTema);
+    try {
+      setTemaSeleccionado(nuevoTema);
+      Appearance.setColorScheme(nuevoTema === 'system' ? (null as any) : nuevoTema);
+      await AsyncStorage.setItem(THEME_KEY, nuevoTema);
+    } catch (error) {
+      console.error('Error guardando tema:', error);
+    }
   };
 
-  // Función crítica para vaciar la despensa (Muy útil para testing)
-  const vaciarBaseDeDatos = () => {
+  const confirmarVaciarDespensa = () => {
     Alert.alert(
-      "⚠️ Vaciar Despensa",
-      "¿Estás seguro de que quieres borrar todos los productos escaneados? Esta acción no se puede deshacer.",
+      '⚠️ Vaciar despensa',
+      'Se borrarán solamente los productos de tu cuenta. Esta acción no se puede deshacer.',
       [
-        { text: "Cancelar", style: "cancel" },
-        { 
-          text: "Sí, Borrar todo", 
-          style: "destructive",
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Sí, borrar todo',
+          style: 'destructive',
           onPress: async () => {
-            await AsyncStorage.removeItem(ASYNC_STORAGE_KEY);
-            Alert.alert("Éxito", "La despensa ha sido vaciada.");
-          }
-        }
+            try {
+              const cantidad = await vaciarInventarioUsuario();
+              Alert.alert('Despensa vaciada', `Se eliminaron ${cantidad} registros.`);
+            } catch (error: any) {
+              Alert.alert('Error', error?.message ?? 'No se pudo vaciar la despensa.');
+            }
+          },
+        },
       ]
     );
   };
 
-  // COLORES DINÁMICOS (Cambian según el modo)
+  const confirmarCerrarSesion = () => {
+    Alert.alert(
+      'Cerrar sesión',
+      '¿Quieres salir de tu cuenta de FrescApp?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Cerrar sesión',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await cerrarSesion();
+              // app/_layout.tsx detecta que ya no hay usuario y abre /login.
+            } catch (error: any) {
+              Alert.alert('Error', error?.message ?? 'No se pudo cerrar la sesión.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const colorFondo = isDark ? '#000000' : '#F2F2F7';
   const colorTarjeta = isDark ? '#1C1C1E' : '#FFFFFF';
   const colorTexto = isDark ? '#FFFFFF' : '#000000';
-  const colorSubtexto = isDark ? '#8E8E93' : '#8E8E93';
+  const colorSubtexto = '#8E8E93';
   const colorBorde = isDark ? '#38383A' : '#E5E5EA';
 
   return (
@@ -72,25 +119,25 @@ export default function PantallaAjustes() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scroll}>
-        
-        {/* SECCIÓN 1: PERFIL (Estético) */}
         <View style={[styles.tarjeta, { backgroundColor: colorTarjeta }]}>
           <View style={styles.perfilFila}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarTexto}>AR</Text>
+              <Text style={styles.avatarTexto}>{iniciales}</Text>
             </View>
+
             <View style={styles.perfilInfo}>
-              <Text style={[styles.perfilNombre, { color: colorTexto }]}>Arquitecto de Software</Text>
-              <Text style={styles.perfilRol}>Proyecto Semestral I+D</Text>
+              <Text style={[styles.perfilNombre, { color: colorTexto }]}>{nombre}</Text>
+              <Text style={styles.perfilRol}>{email}</Text>
             </View>
           </View>
         </View>
 
         <Text style={styles.tituloSeccion}>APARIENCIA</Text>
         <View style={[styles.tarjeta, { backgroundColor: colorTarjeta, paddingVertical: 5 }]}>
-          
-          {/* Opción Sistema */}
-          <TouchableOpacity style={[styles.filaOpcion, { borderBottomColor: colorBorde }]} onPress={() => cambiarTema('system')}>
+          <TouchableOpacity
+            style={[styles.filaOpcion, { borderBottomColor: colorBorde }]}
+            onPress={() => cambiarTema('system')}
+          >
             <View style={styles.filaIzquierda}>
               <View style={[styles.iconoCaja, { backgroundColor: '#8E8E93' }]}>
                 <Ionicons name="phone-portrait-outline" size={18} color="white" />
@@ -100,8 +147,10 @@ export default function PantallaAjustes() {
             {temaSeleccionado === 'system' && <Ionicons name="checkmark" size={24} color="#34C759" />}
           </TouchableOpacity>
 
-          {/* Opción Claro */}
-          <TouchableOpacity style={[styles.filaOpcion, { borderBottomColor: colorBorde }]} onPress={() => cambiarTema('light')}>
+          <TouchableOpacity
+            style={[styles.filaOpcion, { borderBottomColor: colorBorde }]}
+            onPress={() => cambiarTema('light')}
+          >
             <View style={styles.filaIzquierda}>
               <View style={[styles.iconoCaja, { backgroundColor: '#FF9500' }]}>
                 <Ionicons name="sunny" size={18} color="white" />
@@ -111,8 +160,10 @@ export default function PantallaAjustes() {
             {temaSeleccionado === 'light' && <Ionicons name="checkmark" size={24} color="#34C759" />}
           </TouchableOpacity>
 
-          {/* Opción Oscuro */}
-          <TouchableOpacity style={[styles.filaOpcion, { borderBottomWidth: 0 }]} onPress={() => cambiarTema('dark')}>
+          <TouchableOpacity
+            style={[styles.filaOpcion, { borderBottomWidth: 0 }]}
+            onPress={() => cambiarTema('dark')}
+          >
             <View style={styles.filaIzquierda}>
               <View style={[styles.iconoCaja, { backgroundColor: '#5856D6' }]}>
                 <Ionicons name="moon" size={18} color="white" />
@@ -130,29 +181,44 @@ export default function PantallaAjustes() {
               <View style={[styles.iconoCaja, { backgroundColor: '#FF2D55' }]}>
                 <Ionicons name="notifications" size={18} color="white" />
               </View>
-              <Text style={[styles.textoOpcion, { color: colorTexto }]}>Alertas de Vencimiento</Text>
+              <Text style={[styles.textoOpcion, { color: colorTexto }]}>Alertas de vencimiento</Text>
             </View>
-            <Switch 
-              value={notificaciones} 
-              onValueChange={setNotificaciones} 
-              trackColor={{ false: "#767577", true: "#34C759" }}
+            <Switch
+              value={notificaciones}
+              onValueChange={setNotificaciones}
+              trackColor={{ false: '#767577', true: '#34C759' }}
             />
           </View>
         </View>
 
-        <Text style={styles.tituloSeccion}>SISTEMA Y DATOS</Text>
+        <Text style={styles.tituloSeccion}>CUENTA Y DATOS</Text>
         <View style={[styles.tarjeta, { backgroundColor: colorTarjeta, paddingVertical: 5 }]}>
-          <TouchableOpacity style={[styles.filaOpcion, { borderBottomWidth: 0 }]} onPress={vaciarBaseDeDatos}>
+          <TouchableOpacity
+            style={[styles.filaOpcion, { borderBottomColor: colorBorde }]}
+            onPress={confirmarVaciarDespensa}
+          >
             <View style={styles.filaIzquierda}>
               <View style={[styles.iconoCaja, { backgroundColor: '#FF3B30' }]}>
                 <Ionicons name="trash" size={18} color="white" />
               </View>
-              <Text style={[styles.textoOpcion, { color: '#FF3B30', fontWeight: '600' }]}>Vaciar Despensa (Borrar todo)</Text>
+              <Text style={[styles.textoOpcion, { color: '#FF3B30', fontWeight: '600' }]}>Vaciar mi despensa</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.filaOpcion, { borderBottomWidth: 0 }]}
+            onPress={confirmarCerrarSesion}
+          >
+            <View style={styles.filaIzquierda}>
+              <View style={[styles.iconoCaja, { backgroundColor: '#636366' }]}>
+                <Ionicons name="log-out-outline" size={18} color="white" />
+              </View>
+              <Text style={[styles.textoOpcion, { color: colorTexto }]}>Cerrar sesión</Text>
             </View>
           </TouchableOpacity>
         </View>
 
-        <Text style={[styles.versionTexto, { color: colorSubtexto }]}>Startup App - Versión 1.0.0</Text>
+        <Text style={[styles.versionTexto, { color: colorSubtexto }]}>FrescApp - Versión 1.0.0</Text>
         <View style={{ height: 40 }} />
       </ScrollView>
     </View>
@@ -164,22 +230,47 @@ const styles = StyleSheet.create({
   cabecera: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 15 },
   tituloCabecera: { fontSize: 34, fontWeight: 'bold' },
   scroll: { paddingHorizontal: 15 },
-  tituloSeccion: { fontSize: 13, fontWeight: '600', color: '#8E8E93', marginTop: 25, marginBottom: 8, marginLeft: 15, letterSpacing: 0.5 },
+  tituloSeccion: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#8E8E93',
+    marginTop: 25,
+    marginBottom: 8,
+    marginLeft: 15,
+    letterSpacing: 0.5,
+  },
   tarjeta: { borderRadius: 12, overflow: 'hidden' },
-  
-  // Estilos del perfil
   perfilFila: { flexDirection: 'row', alignItems: 'center', padding: 15 },
-  avatar: { width: 60, height: 60, borderRadius: 30, backgroundColor: '#2E7D32', justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-  avatarTexto: { color: '#FFF', fontSize: 24, fontWeight: 'bold' },
+  avatar: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#2E7D32',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  avatarTexto: { color: '#FFF', fontSize: 22, fontWeight: 'bold' },
   perfilInfo: { flex: 1 },
   perfilNombre: { fontSize: 20, fontWeight: '600', marginBottom: 4 },
-  perfilRol: { fontSize: 15, color: '#8E8E93' },
-
-  // Estilos de las opciones
-  filaOpcion: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, paddingHorizontal: 15, borderBottomWidth: 0.5 },
-  filaIzquierda: { flexDirection: 'row', alignItems: 'center' },
-  iconoCaja: { width: 30, height: 30, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-  textoOpcion: { fontSize: 17 },
-  
+  perfilRol: { fontSize: 14, color: '#8E8E93' },
+  filaOpcion: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderBottomWidth: 0.5,
+  },
+  filaIzquierda: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  iconoCaja: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  textoOpcion: { fontSize: 17, flexShrink: 1 },
   versionTexto: { textAlign: 'center', marginTop: 30, fontSize: 13 },
 });

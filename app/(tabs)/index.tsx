@@ -1,109 +1,125 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
-import React, { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
-
-const ASYNC_STORAGE_KEY = '@inventario_abuelitas_v4';
+import { usuarioActual } from '../../services/auth';
+import {
+  migrarInventarioLocalAFirestore,
+  obtenerEstadoVencimiento,
+  obtenerInventario,
+  ordenarPorVencimiento,
+} from '../../services/inventarioFirestore';
+import { ProductoInventario } from '../../services/productos';
 
 export default function PantallaInicio() {
-  const [productosProximos, setProductosProximos] = useState<any[]>([]);
-  const [totalProductos, setTotalProductos] = useState(0);
-  
-  // 1. ESCUCHAMOS EL TEMA GLOBAL
-  const temaSistema = useColorScheme();
-  const isDark = temaSistema === 'dark';
-
-  // 2. DEFINIMOS LA PALETA DINÁMICA
-  const colorFondo = isDark ? '#000000' : '#F8F9FA';
-  const colorTarjeta = isDark ? '#1C1C1E' : '#FFFFFF';
-  const colorTexto = isDark ? '#FFFFFF' : '#333333';
-  const colorSubtexto = isDark ? '#8E8E93' : '#666666';
-
-  const calcularDiasRestantes = (fechaStr: string) => {
-    if (!fechaStr || fechaStr === 'No visible' || fechaStr === 'Sin fecha') return null;
-    const partes = fechaStr.split('/');
-    let fechaVencimiento;
-    if (partes.length === 3) {
-      fechaVencimiento = new Date(parseInt(partes[2]), parseInt(partes[1]) - 1, parseInt(partes[0]));
-    } else if (partes.length === 2) {
-      fechaVencimiento = new Date(parseInt(partes[1]), parseInt(partes[0]) - 1, 1);
-    } else { return null; }
-
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    fechaVencimiento.setHours(0, 0, 0, 0);
-    return Math.ceil((fechaVencimiento.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
-  };
+  const [inventario, setInventario] = useState<ProductoInventario[]>([]);
+  const isDark = useColorScheme() === 'dark';
+  const colorFondo = isDark ? '#000' : '#F8F9FA';
+  const colorTarjeta = isDark ? '#1C1C1E' : '#FFF';
+  const colorTexto = isDark ? '#FFF' : '#333';
+  const colorSubtexto = isDark ? '#8E8E93' : '#666';
 
   useFocusEffect(
     useCallback(() => {
-      const cargarResumen = async () => {
+      const cargar = async () => {
+        if (!usuarioActual()) {
+          setInventario([]);
+          return;
+        }
+
         try {
-          const datos = await AsyncStorage.getItem(ASYNC_STORAGE_KEY);
-          if (datos) {
-            const inventario = JSON.parse(datos);
-            setTotalProductos(inventario.length);
-            const urgentes = inventario.filter((prod: any) => {
-              const dias = calcularDiasRestantes(prod.vencimiento);
-              return dias !== null && dias <= 5;
-            });
-            urgentes.sort((a: any, b: any) => calcularDiasRestantes(a.vencimiento)! - calcularDiasRestantes(b.vencimiento)!);
-            setProductosProximos(urgentes);
-          }
-        } catch (e) { console.error(e); }
+          await migrarInventarioLocalAFirestore();
+          setInventario(ordenarPorVencimiento(await obtenerInventario()));
+        } catch (error) {
+          console.log('Inicio esperando datos del usuario.');
+        }
       };
-      cargarResumen();
+      cargar();
     }, [])
+  );
+
+  const resumen = useMemo(() => {
+    let vencidos = 0;
+    let urgentes = 0;
+    let proximos = 0;
+    let atencion = 0;
+    let bien = 0;
+
+    inventario.forEach((producto) => {
+      const estado = obtenerEstadoVencimiento(producto.vencimiento).estado;
+      if (estado === 'vencido') vencidos++;
+      else if (estado === 'urgente') urgentes++;
+      else if (estado === 'pronto') proximos++;
+      else if (estado === 'atencion') atencion++;
+      else if (estado === 'bien') bien++;
+    });
+
+    return { vencidos, urgentes, proximos, atencion, bien };
+  }, [inventario]);
+
+  const consumirPrimero = useMemo(
+    () => inventario.filter((p) => {
+      const estado = obtenerEstadoVencimiento(p.vencimiento).estado;
+      return estado === 'vencido' || estado === 'urgente' || estado === 'pronto';
+    }).slice(0, 5),
+    [inventario]
+  );
+
+  const totalUnidades = useMemo(
+    () => inventario.reduce((sum, p) => sum + (p.cantidad || 1), 0),
+    [inventario]
   );
 
   return (
     <View style={[styles.fondo, { backgroundColor: colorFondo }]}>
       <View style={styles.cabecera}>
         <Text style={styles.saludo}>Hola 👋</Text>
-        <Text style={styles.titulo}>Resumen de tu Despensa</Text>
+        <Text style={styles.titulo}>Tu despensa bajo control</Text>
       </View>
 
-      <ScrollView style={styles.contenido}>
+      <ScrollView style={styles.contenido} contentContainerStyle={{ paddingBottom: 110 }}>
         <View style={styles.tarjetaStats}>
           <View>
-            <Text style={styles.statsNumero}>{totalProductos}</Text>
-            <Text style={styles.statsTexto}>Productos guardados</Text>
+            <Text style={styles.statsNumero}>{inventario.length}</Text>
+            <Text style={styles.statsTexto}>productos • {totalUnidades} unidades</Text>
           </View>
-          <Ionicons name="cube" size={40} color="#E8F5E9" />
+          <Ionicons name="basket" size={42} color="#E8F5E9" />
         </View>
 
-        <View style={styles.seccionAlertas}>
-          <Text style={[styles.tituloSeccion, { color: colorTexto }]}>⚠️ Atención: Vencen Pronto</Text>
-          <Text style={[styles.subtituloSeccion, { color: colorSubtexto }]}>(5 días o menos)</Text>
+        <Text style={[styles.tituloSeccion, { color: colorTexto }]}>⚡ Consumir primero</Text>
+        <Text style={[styles.subtituloSeccion, { color: colorSubtexto }]}>Prioridad según la fecha de vencimiento</Text>
 
-          {productosProximos.length > 0 ? (
-            productosProximos.map((prod, index) => {
-              const dias = calcularDiasRestantes(prod.vencimiento)!;
-              const esVencido = dias < 0;
-              const esHoy = dias === 0;
+        {consumirPrimero.length > 0 ? consumirPrimero.map((prod) => {
+          const estado = obtenerEstadoVencimiento(prod.vencimiento);
+          const esVencido = estado.estado === 'vencido';
+          const esUrgente = estado.estado === 'urgente';
 
-              return (
-                <View key={index} style={[styles.tarjetaAlerta, { backgroundColor: colorTarjeta }, esVencido ? styles.bordeRojo : styles.bordeNaranja]}>
-                  <View style={styles.alertaInfo}>
-                    <Text style={[styles.alertaNombre, { color: colorTexto }]}>{prod.nombre}</Text>
-                    <Text style={[styles.alertaFecha, { color: colorSubtexto }]}>Vence: {prod.vencimiento}</Text>
-                  </View>
-                  <View style={[styles.badgeDias, esVencido ? styles.bgRojo : styles.bgNaranja]}>
-                    <Text style={styles.textoBadge}>
-                      {esVencido ? 'VENCIDO' : esHoy ? 'HOY' : `En ${dias} d`}
-                    </Text>
-                  </View>
-                </View>
-              );
-            })
-          ) : (
-            <View style={[styles.cajaTranquilidad, { backgroundColor: colorTarjeta }]}>
-              <Ionicons name="checkmark-circle" size={50} color="#4CAF50" />
-              <Text style={styles.textoTranquilidad}>¡Todo perfecto!</Text>
-              <Text style={[styles.subtextoTranquilidad, { color: colorSubtexto }]}>No hay productos por vencer pronto.</Text>
+          return (
+            <View key={prod.id} style={[styles.tarjetaAlerta, { backgroundColor: colorTarjeta, borderLeftColor: esVencido || esUrgente ? '#F44336' : '#FF9800' }]}>
+              <View style={styles.alertaInfo}>
+                <Text style={[styles.alertaNombre, { color: colorTexto }]}>{prod.nombre}</Text>
+                <Text style={[styles.alertaFecha, { color: colorSubtexto }]}>x{prod.cantidad || 1} • Vence: {prod.vencimiento}</Text>
+              </View>
+              <View style={[styles.badgeDias, { backgroundColor: esVencido || esUrgente ? '#FFEBEE' : '#FFF3E0' }]}>
+                <Text style={[styles.textoBadge, { color: esVencido || esUrgente ? '#C62828' : '#D84315' }]}>{estado.etiqueta}</Text>
+              </View>
             </View>
-          )}
+          );
+        }) : (
+          <View style={[styles.cajaTranquilidad, { backgroundColor: colorTarjeta }]}>
+            <Ionicons name="checkmark-circle" size={48} color="#4CAF50" />
+            <Text style={styles.textoTranquilidad}>¡Todo bien!</Text>
+            <Text style={[styles.subtextoTranquilidad, { color: colorSubtexto }]}>No tienes productos urgentes por consumir.</Text>
+          </View>
+        )}
+
+        <Text style={[styles.tituloSeccion, { color: colorTexto, marginTop: 24 }]}>Estado de tu despensa</Text>
+        <View style={styles.gridEstados}>
+          <View style={[styles.estadoCard, { backgroundColor: colorTarjeta }]}><Text style={styles.estadoEmoji}>⚫</Text><Text style={[styles.estadoNumero, { color: colorTexto }]}>{resumen.vencidos}</Text><Text style={[styles.estadoLabel, { color: colorSubtexto }]}>Vencidos</Text></View>
+          <View style={[styles.estadoCard, { backgroundColor: colorTarjeta }]}><Text style={styles.estadoEmoji}>🔴</Text><Text style={[styles.estadoNumero, { color: colorTexto }]}>{resumen.urgentes}</Text><Text style={[styles.estadoLabel, { color: colorSubtexto }]}>0–3 días</Text></View>
+          <View style={[styles.estadoCard, { backgroundColor: colorTarjeta }]}><Text style={styles.estadoEmoji}>🟠</Text><Text style={[styles.estadoNumero, { color: colorTexto }]}>{resumen.proximos}</Text><Text style={[styles.estadoLabel, { color: colorSubtexto }]}>4–7 días</Text></View>
+          <View style={[styles.estadoCard, { backgroundColor: colorTarjeta }]}><Text style={styles.estadoEmoji}>🟡</Text><Text style={[styles.estadoNumero, { color: colorTexto }]}>{resumen.atencion}</Text><Text style={[styles.estadoLabel, { color: colorSubtexto }]}>8–15 días</Text></View>
+          <View style={[styles.estadoCard, { backgroundColor: colorTarjeta }]}><Text style={styles.estadoEmoji}>🟢</Text><Text style={[styles.estadoNumero, { color: colorTexto }]}>{resumen.bien}</Text><Text style={[styles.estadoLabel, { color: colorSubtexto }]}>+15 días</Text></View>
         </View>
       </ScrollView>
     </View>
@@ -116,23 +132,23 @@ const styles = StyleSheet.create({
   saludo: { fontSize: 18, color: '#E8F5E9', marginBottom: 5 },
   titulo: { fontSize: 26, fontWeight: 'bold', color: '#FFF' },
   contenido: { flex: 1, padding: 20 },
-  tarjetaStats: { backgroundColor: '#43A047', borderRadius: 15, padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, elevation: 4 },
-  statsNumero: { fontSize: 36, fontWeight: 'bold', color: '#FFF' },
-  statsTexto: { fontSize: 16, color: '#E8F5E9' },
-  seccionAlertas: { flex: 1 },
+  tarjetaStats: { backgroundColor: '#43A047', borderRadius: 16, padding: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25, elevation: 4 },
+  statsNumero: { fontSize: 38, fontWeight: 'bold', color: '#FFF' },
+  statsTexto: { fontSize: 15, color: '#E8F5E9' },
   tituloSeccion: { fontSize: 20, fontWeight: 'bold' },
-  subtituloSeccion: { fontSize: 14, marginBottom: 15 },
+  subtituloSeccion: { fontSize: 14, marginTop: 2, marginBottom: 15 },
   tarjetaAlerta: { padding: 15, borderRadius: 12, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderLeftWidth: 5, elevation: 2 },
-  bordeNaranja: { borderLeftColor: '#FF9800' },
-  bordeRojo: { borderLeftColor: '#F44336' },
-  alertaInfo: { flex: 1 },
+  alertaInfo: { flex: 1, paddingRight: 8 },
   alertaNombre: { fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
-  alertaFecha: { fontSize: 14 },
-  badgeDias: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  bgNaranja: { backgroundColor: '#FFF3E0' },
-  bgRojo: { backgroundColor: '#FFEBEE' },
-  textoBadge: { fontWeight: 'bold', fontSize: 12, color: '#D84315' },
-  cajaTranquilidad: { alignItems: 'center', padding: 30, borderRadius: 15, marginTop: 10 },
-  textoTranquilidad: { fontSize: 20, fontWeight: 'bold', color: '#2E7D32', marginTop: 10 },
-  subtextoTranquilidad: { fontSize: 15, marginTop: 5 }
+  alertaFecha: { fontSize: 13 },
+  badgeDias: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, maxWidth: 120 },
+  textoBadge: { fontWeight: 'bold', fontSize: 11, textAlign: 'center' },
+  cajaTranquilidad: { alignItems: 'center', padding: 26, borderRadius: 15, marginTop: 4 },
+  textoTranquilidad: { fontSize: 20, fontWeight: 'bold', color: '#2E7D32', marginTop: 8 },
+  subtextoTranquilidad: { fontSize: 14, marginTop: 5, textAlign: 'center' },
+  gridEstados: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12 },
+  estadoCard: { width: '30%', minWidth: 95, flexGrow: 1, borderRadius: 14, padding: 13, alignItems: 'center' },
+  estadoEmoji: { fontSize: 20 },
+  estadoNumero: { fontSize: 24, fontWeight: 'bold', marginTop: 2 },
+  estadoLabel: { fontSize: 11, marginTop: 2, textAlign: 'center' },
 });
