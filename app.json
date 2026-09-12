@@ -12,7 +12,13 @@
       "backgroundColor": "#ffffff"
     },
     "plugins": [
-      "expo-camera"
+      "expo-camera",
+      "expo-font",
+      "expo-image",
+      "expo-router",
+      "expo-splash-screen",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {
