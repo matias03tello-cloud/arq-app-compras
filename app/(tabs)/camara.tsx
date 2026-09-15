@@ -1,11 +1,13 @@
-import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as FileSystem from 'expo-file-system/legacy';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { useIsFocused } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -83,6 +85,7 @@ function formatearFechaManual(texto: string): string {
 }
 
 export default function PantallaCamara() {
+  const isFocused = useIsFocused();
   const [permiso, pedirPermiso] = useCameraPermissions();
   const [paso, setPaso] = useState<PasoFlujo>('INICIAL');
   const [procesando, setProcesando] = useState(false);
@@ -110,7 +113,7 @@ export default function PantallaCamara() {
   const colorSubtexto = isDark ? '#A0A0A5' : '#666';
 
   const manejarCodigoEscaneado = async ({ data }: { data: string }) => {
-    if (bloqueado.current || procesando || paso !== 'INICIAL') return;
+    if (!isFocused || bloqueado.current || procesando || paso !== 'INICIAL') return;
 
     bloqueado.current = true;
     setProcesando(true);
@@ -130,8 +133,8 @@ export default function PantallaCamara() {
         setUnidad('unidad');
         setPaso('REGISTRO_MANUAL');
       }
-    } catch (error) {
-      console.error('Error consultando catálogo:', error);
+    } catch {
+      
       Alert.alert('Error', 'No se pudo consultar tu catálogo de Firestore.');
       bloqueado.current = false;
       setCodigoLeido(null);
@@ -141,6 +144,7 @@ export default function PantallaCamara() {
   };
 
   const registrarProductoNuevo = async () => {
+    if (procesando) return;
     if (!codigoLeido) return;
     if (!nombre.trim()) {
       Alert.alert('Falta información', 'Debes escribir el nombre del producto.');
@@ -162,8 +166,8 @@ export default function PantallaCamara() {
       await guardarProductoCatalogo(nuevoProducto);
       setProductoActual(nuevoProducto);
       setPaso('FOTO_FECHA');
-    } catch (error) {
-      console.error('Error guardando catálogo:', error);
+    } catch {
+      
       Alert.alert('Error', 'No se pudo guardar el producto en Firestore.');
     } finally {
       setProcesando(false);
@@ -176,46 +180,45 @@ export default function PantallaCamara() {
     const foto = await cameraRef.current.takePictureAsync({ quality: 0.8, skipProcessing: false });
     if (!foto?.uri) return null;
 
-    return manipulateAsync(
-      foto.uri,
-      [{ resize: { width: 1200 } }],
-      { compress: 0.8, format: SaveFormat.JPEG }
-    );
+    try {
+      return await manipulateAsync(foto.uri, [{ resize: { width: 1200 } }], { compress: 0.8, format: SaveFormat.JPEG });
+    } finally {
+      await FileSystem.deleteAsync(foto.uri, { idempotent: true });
+    }
   };
 
   const leerFechaConMLKit = async () => {
     if (!productoActual || procesando) return;
-
+    if (Platform.OS === 'web') {
+      Alert.alert('Lectura de fecha', 'En el navegador, escribe la fecha manualmente.');
+      return;
+    }
+    let uri: string | undefined;
     try {
       setProcesando(true);
+      // La carga diferida permite abrir las demás funciones también en Expo Go.
+      const TextRecognition = (await import('@react-native-ml-kit/text-recognition')).default;
       const foto = await tomarFoto();
-      if (!foto?.uri) throw new Error('No se pudo capturar la imagen.');
-
-      const resultado = await TextRecognition.recognize(foto.uri);
+      uri = foto?.uri;
+      if (!uri) throw new Error('No se pudo capturar la imagen.');
+      const resultado = await TextRecognition.recognize(uri);
       const fecha = normalizarFecha(resultado.text);
-
       if (!fecha) {
-        Alert.alert(
-          'Fecha no detectada',
-          'Puedes volver a intentar o escribirla manualmente abajo.'
-        );
+        Alert.alert('Fecha no detectada', 'Puedes volver a intentar o escribirla manualmente abajo.');
         return;
       }
-
       setFechaManual(fecha);
       Alert.alert('Fecha detectada', fecha);
-    } catch (error) {
-      console.error('Error OCR:', error);
-      Alert.alert(
-        'No se pudo usar el OCR',
-        'Escribe la fecha manualmente. Recuerda que ML Kit requiere una Development Build y no funciona dentro de Expo Go.'
-      );
+    } catch {
+      Alert.alert('No se pudo leer la fecha', 'Puedes escribirla manualmente. La lectura automática necesita la versión instalada con los módulos nativos.');
     } finally {
-      setProcesando(false);
+      try { if (uri) await FileSystem.deleteAsync(uri, { idempotent: true }); }
+      finally { setProcesando(false); }
     }
   };
 
   const guardarProductoEnDespensa = async () => {
+    if (procesando) return;
     if (!productoActual) return;
 
     const cantidad = Number(cantidadTexto);
@@ -248,8 +251,8 @@ export default function PantallaCamara() {
       const productoGuardado = await agregarAlInventario(nuevoProducto);
       setUltimoResultado(productoGuardado);
       setPaso('EXITO');
-    } catch (error) {
-      console.error('Error guardando inventario:', error);
+    } catch {
+      
       Alert.alert('Error', 'No se pudo guardar el producto en la despensa.');
     } finally {
       setProcesando(false);
@@ -357,7 +360,7 @@ export default function PantallaCamara() {
         </ScrollView>
       ) : (
         <View style={styles.camaraContainer}>
-          <CameraView
+          <CameraView active={isFocused}
             ref={cameraRef}
             style={styles.camara}
             facing="back"

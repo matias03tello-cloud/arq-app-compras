@@ -1,203 +1,67 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-    addDoc,
-    collection,
-    deleteDoc,
-    doc,
-    getDocs,
-    query,
-    serverTimestamp,
-    updateDoc,
-    where,
-} from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, getDocs, limit, query, serverTimestamp, where, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
+import { idValido } from '../security/validation';
 import { obtenerUidActual, usuarioActual } from './auth';
-import { ProductoInventario } from './productos';
+import { ProductoInventario, validarProducto } from './productos';
 
-const COLECCION_INVENTARIO = 'inventario';
-const STORAGE_ANTIGUO = '@inventario_abuelitas_v4';
-const USUARIO_DEMO_ANTIGUO = 'usuario_demo';
+export type EstadoVencimiento = 'vencido' | 'urgente' | 'pronto' | 'atencion' | 'bien' | 'sin-fecha';
+export interface EstadoProducto { estado: EstadoVencimiento; dias: number | null; etiqueta: string; }
 
-export type EstadoVencimiento =
-  | 'vencido'
-  | 'urgente'
-  | 'pronto'
-  | 'atencion'
-  | 'bien'
-  | 'sin-fecha';
-
-export interface EstadoProducto {
-  estado: EstadoVencimiento;
-  dias: number | null;
-  etiqueta: string;
+function normalizarProducto(data: Partial<ProductoInventario>, id: string): ProductoInventario {
+  return { id, codigoBarras: data.codigoBarras ?? '', nombre: data.nombre ?? 'Producto',
+    marca: data.marca ?? 'Sin marca', categoria: data.categoria ?? 'Otros', formato: data.formato ?? '',
+    unidad: data.unidad ?? 'unidad', cantidad: Number(data.cantidad) > 0 ? Number(data.cantidad) : 1,
+    vencimiento: data.vencimiento ?? 'Sin fecha', fechaRegistro: data.fechaRegistro ?? '' };
 }
-
-function normalizarProducto(
-  data: Partial<ProductoInventario>,
-  id: string
-): ProductoInventario {
-  return {
-    id,
-    codigoBarras: data.codigoBarras ?? '',
-    nombre: data.nombre ?? 'Producto',
-    marca: data.marca ?? 'Sin marca',
-    categoria: data.categoria ?? 'Otros',
-    formato: data.formato ?? '',
-    unidad: data.unidad ?? 'unidad',
-    cantidad: Number(data.cantidad) > 0 ? Number(data.cantidad) : 1,
-    vencimiento: data.vencimiento ?? 'Sin fecha',
-    fechaRegistro: data.fechaRegistro ?? '',
-  };
-}
-
 export async function obtenerInventario(): Promise<ProductoInventario[]> {
   const usuario = usuarioActual();
   if (!usuario) return [];
   const uid = usuario.uid;
-
-  try {
-    const referencia = collection(db, COLECCION_INVENTARIO);
-    const consulta = query(referencia, where('usuarioId', '==', uid));
-    const resultado = await getDocs(consulta);
-
-    return resultado.docs.map((documento) =>
-      normalizarProducto(
-        documento.data() as Partial<ProductoInventario>,
-        documento.id
-      )
-    );
-  } catch (error) {
-    console.error('Error obteniendo inventario desde Firestore:', error);
-    throw error;
-  }
+  const [actual, antiguo] = await Promise.all([
+    getDocs(collection(db, 'usuarios', uid, 'inventario')),
+    getDocs(query(collection(db, 'inventario'), where('usuarioId', '==', uid))),
+  ]);
+  // No devolver una respuesta que llegó después de cambiar de cuenta.
+  if (usuarioActual()?.uid !== uid) return [];
+  return [
+    ...actual.docs.map(d => normalizarProducto(d.data(), `v5:${d.id}`)),
+    ...antiguo.docs.map(d => normalizarProducto(d.data(), `v4:${d.id}`)),
+  ];
 }
-
-export async function agregarAlInventario(
-  producto: ProductoInventario
-): Promise<ProductoInventario> {
+export async function agregarAlInventario(producto: ProductoInventario): Promise<ProductoInventario> {
   const uid = obtenerUidActual();
-
-  try {
-    const { id: _idLocal, ...datosProducto } = producto;
-
-    const referencia = await addDoc(collection(db, COLECCION_INVENTARIO), {
-      ...datosProducto,
-      usuarioId: uid,
-      creadoEn: serverTimestamp(),
-    });
-
-    return {
-      ...producto,
-      id: referencia.id,
-    };
-  } catch (error) {
-    console.error('Error agregando producto al inventario:', error);
-    throw error;
-  }
+  const catalogo = validarProducto({ ...producto, formato: producto.formato ?? '', unidad: producto.unidad ?? 'unidad', activo: true });
+  if (!Number.isInteger(producto.cantidad) || producto.cantidad < 1 || producto.cantidad > 999) throw new Error('Cantidad inválida.');
+  if (!fechaTextoADate(producto.vencimiento)) throw new Error('Fecha de vencimiento inválida.');
+  const { activo: _activo, ...campos } = catalogo;
+  const fechaRegistro = new Date().toISOString();
+  const datos = { ...campos, cantidad: producto.cantidad, vencimiento: producto.vencimiento, fechaRegistro };
+  const ref = await addDoc(collection(db, 'usuarios', uid, 'inventario'), { ...datos, creadoEn: serverTimestamp() });
+  return { ...datos, id: `v5:${ref.id}` };
 }
-
 export async function eliminarProductoInventario(id: string): Promise<void> {
   const uid = obtenerUidActual();
-
-  try {
-    // Verificamos que el documento esté dentro del inventario visible del usuario.
-    const propios = await getDocs(
-      query(
-        collection(db, COLECCION_INVENTARIO),
-        where('usuarioId', '==', uid)
-      )
-    );
-
-    if (!propios.docs.some((item) => item.id === id)) {
-      throw new Error('No puedes eliminar un producto que no pertenece a tu cuenta.');
-    }
-
-    await deleteDoc(doc(db, COLECCION_INVENTARIO, id));
-  } catch (error) {
-    console.error('Error eliminando producto del inventario:', error);
-    throw error;
-  }
+  const version = id.slice(0, 3);
+  const recordId = idValido(id.slice(3));
+  if (version === 'v5:') await deleteDoc(doc(db, 'usuarios', uid, 'inventario', recordId));
+  else if (version === 'v4:') await deleteDoc(doc(db, 'inventario', recordId));
+  else throw new Error('Versión de registro inválida.');
+  // La propiedad del documento antiguo también la valida Firestore, nunca solo la UI.
 }
-
 export async function vaciarInventarioUsuario(): Promise<number> {
   const uid = obtenerUidActual();
-
-  const resultado = await getDocs(
-    query(
-      collection(db, COLECCION_INVENTARIO),
-      where('usuarioId', '==', uid)
-    )
-  );
-
-  await Promise.all(
-    resultado.docs.map((documento) => deleteDoc(documento.ref))
-  );
-
-  return resultado.size;
-}
-
-// Compatibilidad con las versiones anteriores del proyecto.
-// 1) Si aún existe el inventario local, lo sube a la cuenta actual.
-// 2) Si la versión anterior ya lo migró como "usuario_demo", lo adopta una vez
-//    hacia la primera cuenta real que se use y que todavía no tenga inventario.
-export async function migrarInventarioLocalAFirestore(): Promise<number> {
-  const usuario = usuarioActual();
-  if (!usuario) return 0;
-  const uid = usuario.uid;
-  const marcaMigracion = `@frescapp_migracion_auth_v1_${uid}`;
-
-  try {
-    const yaMigrado = await AsyncStorage.getItem(marcaMigracion);
-    if (yaMigrado === '1') return 0;
-
-    const inventarioUsuario = await obtenerInventario();
-    let migrados = 0;
-
-    if (inventarioUsuario.length === 0) {
-      const datosLocales = await AsyncStorage.getItem(STORAGE_ANTIGUO);
-
-      if (datosLocales) {
-        const lista = JSON.parse(datosLocales) as Partial<ProductoInventario>[];
-
-        for (let i = 0; i < lista.length; i++) {
-          const producto = normalizarProducto(
-            lista[i],
-            `migracion-${Date.now()}-${i}`
-          );
-
-          await agregarAlInventario(producto);
-          migrados++;
-        }
-
-        await AsyncStorage.removeItem(STORAGE_ANTIGUO);
-      } else {
-        const demo = await getDocs(
-          query(
-            collection(db, COLECCION_INVENTARIO),
-            where('usuarioId', '==', USUARIO_DEMO_ANTIGUO)
-          )
-        );
-
-        if (!demo.empty) {
-          await Promise.all(
-            demo.docs.map((documento) =>
-              updateDoc(documento.ref, {
-                usuarioId: uid,
-                migradoAUsuarioEn: serverTimestamp(),
-              })
-            )
-          );
-          migrados = demo.size;
-        }
-      }
+  let total = 0;
+  for (const target of [collection(db, 'usuarios', uid, 'inventario'), query(collection(db, 'inventario'), where('usuarioId', '==', uid))]) {
+    for (;;) {
+      if (usuarioActual()?.uid !== uid) throw new Error('La sesión cambió.');
+      const page = await getDocs(query(target, limit(400)));
+      if (page.empty) break;
+      const batch = writeBatch(db);
+      page.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit(); total += page.size;
     }
-
-    await AsyncStorage.setItem(marcaMigracion, '1');
-    return migrados;
-  } catch (error) {
-    console.error('Error migrando inventario a la cuenta actual:', error);
-    throw error;
   }
+  return total;
 }
 
 export function fechaTextoADate(fechaStr: string): Date | null {

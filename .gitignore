@@ -41,3 +41,17 @@ app-example
 # generated native folders
 /ios
 /android
+
+# FrescApp: datos locales y credenciales de servidor
+.env
+.env.*
+!.env.example
+!functions/.env.example
+*service-account*.json
+*serviceAccount*.json
+*firebase-adminsdk*.json
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+*-debug.log
+exports/

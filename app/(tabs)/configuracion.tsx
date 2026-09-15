@@ -1,12 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   Alert,
   Appearance,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TouchableOpacity,
   useColorScheme,
@@ -18,9 +18,9 @@ import { vaciarInventarioUsuario } from '../../services/inventarioFirestore';
 const THEME_KEY = '@preferencia_tema';
 
 export default function PantallaAjustes() {
+  const router = useRouter();
   const esquemaSistema = useColorScheme();
   const [temaSeleccionado, setTemaSeleccionado] = useState<'light' | 'dark' | 'system'>('system');
-  const [notificaciones, setNotificaciones] = useState(true);
 
   const isDark = temaSeleccionado === 'system'
     ? esquemaSistema === 'dark'
@@ -42,10 +42,10 @@ export default function PantallaAjustes() {
         const temaGuardado = await AsyncStorage.getItem(THEME_KEY);
         if (temaGuardado === 'light' || temaGuardado === 'dark' || temaGuardado === 'system') {
           setTemaSeleccionado(temaGuardado);
-          Appearance.setColorScheme(temaGuardado === 'system' ? (null as any) : temaGuardado);
+          Appearance.setColorScheme(temaGuardado === 'system' ? 'unspecified' : temaGuardado);
         }
-      } catch (error) {
-        console.error('Error cargando tema:', error);
+      } catch {
+        
       }
     };
 
@@ -55,10 +55,10 @@ export default function PantallaAjustes() {
   const cambiarTema = async (nuevoTema: 'light' | 'dark' | 'system') => {
     try {
       setTemaSeleccionado(nuevoTema);
-      Appearance.setColorScheme(nuevoTema === 'system' ? (null as any) : nuevoTema);
+      Appearance.setColorScheme(nuevoTema === 'system' ? 'unspecified' : nuevoTema);
       await AsyncStorage.setItem(THEME_KEY, nuevoTema);
-    } catch (error) {
-      console.error('Error guardando tema:', error);
+    } catch {
+      
     }
   };
 
@@ -183,15 +183,15 @@ export default function PantallaAjustes() {
               </View>
               <Text style={[styles.textoOpcion, { color: colorTexto }]}>Alertas de vencimiento</Text>
             </View>
-            <Switch
-              value={notificaciones}
-              onValueChange={setNotificaciones}
-              trackColor={{ false: '#767577', true: '#34C759' }}
-            />
+            <Text style={{ color: colorSubtexto, fontSize: 12, maxWidth: 100 }}>Disponibles en Inicio</Text>
           </View>
         </View>
 
         <Text style={styles.tituloSeccion}>CUENTA Y DATOS</Text>
+        <TouchableOpacity style={[styles.filaOpcion, { backgroundColor: colorTarjeta, borderRadius: 12, marginBottom: 12 }]} onPress={() => router.push('/privacidad')}>
+          <Text style={[styles.textoOpcion, { color: colorTexto }]}>Privacidad y datos</Text>
+          <Ionicons name="shield-checkmark-outline" size={24} color="#2E7D32" />
+        </TouchableOpacity>
         <View style={[styles.tarjeta, { backgroundColor: colorTarjeta, paddingVertical: 5 }]}>
           <TouchableOpacity
             style={[styles.filaOpcion, { borderBottomColor: colorBorde }]}
@@ -218,7 +218,7 @@ export default function PantallaAjustes() {
           </TouchableOpacity>
         </View>
 
-        <Text style={[styles.versionTexto, { color: colorSubtexto }]}>FrescApp - Versión 1.0.0</Text>
+        <Text style={[styles.versionTexto, { color: colorSubtexto }]}>FrescApp - V5 Seguridad y privacidad</Text>
         <View style={{ height: 40 }} />
       </ScrollView>
     </View>

@@ -4,7 +4,6 @@ import { useCallback, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { usuarioActual } from '../../services/auth';
 import {
-  migrarInventarioLocalAFirestore,
   obtenerEstadoVencimiento,
   obtenerInventario,
   ordenarPorVencimiento,
@@ -13,6 +12,7 @@ import { ProductoInventario } from '../../services/productos';
 
 export default function PantallaInicio() {
   const [inventario, setInventario] = useState<ProductoInventario[]>([]);
+  const [errorCarga, setErrorCarga] = useState(false);
   const isDark = useColorScheme() === 'dark';
   const colorFondo = isDark ? '#000' : '#F8F9FA';
   const colorTarjeta = isDark ? '#1C1C1E' : '#FFF';
@@ -22,16 +22,16 @@ export default function PantallaInicio() {
   useFocusEffect(
     useCallback(() => {
       const cargar = async () => {
+        setErrorCarga(false);
         if (!usuarioActual()) {
           setInventario([]);
           return;
         }
 
         try {
-          await migrarInventarioLocalAFirestore();
           setInventario(ordenarPorVencimiento(await obtenerInventario()));
-        } catch (error) {
-          console.log('Inicio esperando datos del usuario.');
+        } catch {
+          setInventario([]); setErrorCarga(true);
         }
       };
       cargar();
@@ -77,6 +77,7 @@ export default function PantallaInicio() {
         <Text style={styles.titulo}>Tu despensa bajo control</Text>
       </View>
 
+      {errorCarga && <Text style={{ color: '#B3261E', padding: 16 }}>No se pudo cargar tu despensa. Revisa la conexión y vuelve a abrir esta pestaña.</Text>}
       <ScrollView style={styles.contenido} contentContainerStyle={{ paddingBottom: 110 }}>
         <View style={styles.tarjetaStats}>
           <View>
