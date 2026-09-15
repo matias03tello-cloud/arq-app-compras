@@ -4,7 +4,6 @@ import { useCallback, useMemo, useState } from 'react';
 import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import {
   eliminarProductoInventario,
-  migrarInventarioLocalAFirestore,
   obtenerEstadoVencimiento,
   obtenerInventario,
   ordenarPorVencimiento,
@@ -31,11 +30,10 @@ export default function PantallaDespensa() {
 
   const cargar = useCallback(async () => {
     try {
-      await migrarInventarioLocalAFirestore();
       const lista = await obtenerInventario();
       setInventario(ordenarPorVencimiento(lista));
-    } catch (error) {
-      console.error('Error cargando despensa:', error);
+    } catch {
+      
       Alert.alert('Error', 'No se pudo cargar la despensa desde Firestore.');
     }
   }, []);
@@ -57,8 +55,8 @@ export default function PantallaDespensa() {
           try {
             await eliminarProductoInventario(id);
             setInventario((actual) => actual.filter((item) => item.id !== id));
-          } catch (error) {
-            console.error('Error eliminando producto:', error);
+          } catch {
+            
             Alert.alert('Error', 'No se pudo eliminar el producto de Firestore.');
           }
         },

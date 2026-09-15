@@ -3,7 +3,6 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import {
-  migrarInventarioLocalAFirestore,
   obtenerEstadoVencimiento,
   obtenerInventario,
   ordenarPorVencimiento,
@@ -21,6 +20,7 @@ const COLOR_PUNTO = {
 
 export default function PantallaCalendario() {
   const [productos, setProductos] = useState<ProductoInventario[]>([]);
+  const [errorCarga, setErrorCarga] = useState(false);
   const isDark = useColorScheme() === 'dark';
   const colorFondo = isDark ? '#000' : '#F2F2F7';
   const colorTarjeta = isDark ? '#1C1C1E' : '#FFF';
@@ -31,11 +31,11 @@ export default function PantallaCalendario() {
   useFocusEffect(
     useCallback(() => {
       const cargar = async () => {
+        setErrorCarga(false);
         try {
-          await migrarInventarioLocalAFirestore();
           setProductos(ordenarPorVencimiento(await obtenerInventario()));
-        } catch (error) {
-          console.error('Error cargando calendario:', error);
+        } catch {
+          setProductos([]); setErrorCarga(true);
         }
       };
       cargar();
@@ -49,6 +49,7 @@ export default function PantallaCalendario() {
         <Text style={{ color: colorSubtexto }}>Vencimientos ordenados por prioridad</Text>
       </View>
 
+      {errorCarga && <Text style={{ color: '#B3261E', padding: 16 }}>No se pudo cargar tu despensa. Revisa la conexión y vuelve a abrir esta pestaña.</Text>}
       <ScrollView contentContainerStyle={styles.scroll}>
         {productos.length === 0 ? (
           <View style={styles.vacioContainer}>

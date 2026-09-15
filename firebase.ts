@@ -1,5 +1,6 @@
-import { initializeApp } from "firebase/app";
+import { getApp, getApps, initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
+import { configureAppCheck } from './security/appCheck';
 
 const firebaseConfig = {
   apiKey: "AIzaSyB8tjj8d1qFFU860bNioC02bbLq_Fr9IUc",
@@ -10,5 +11,7 @@ const firebaseConfig = {
   appId: "1:175580172771:web:230fd51ceb905c6bc490d6"
 };
 
-const app = initializeApp(firebaseConfig);
+const existing = getApps().length > 0;
+export const app = existing ? getApp() : initializeApp(firebaseConfig);
+if (!existing) configureAppCheck(app);
 export const db = getFirestore(app);

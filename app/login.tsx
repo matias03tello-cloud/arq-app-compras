@@ -1,20 +1,23 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { iniciarSesion, registrarUsuario } from '../services/auth';
+import { iniciarSesion, recuperarPassword, registrarUsuario } from '../services/auth';
 
 export default function LoginScreen() {
+  const router = useRouter();
+  const [avisoLeido, setAvisoLeido] = useState(false);
   const [modoRegistro, setModoRegistro] = useState(false);
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
@@ -28,8 +31,8 @@ export default function LoginScreen() {
       return;
     }
 
-    if (password.length < 6) {
-      Alert.alert('Contraseña muy corta', 'Usa al menos 6 caracteres.');
+    if (modoRegistro && password.length < 12) {
+      Alert.alert('Contraseña muy corta', 'Usa al menos 12 caracteres. Puedes usar una frase larga.');
       return;
     }
 
@@ -42,7 +45,7 @@ export default function LoginScreen() {
       setCargando(true);
 
       if (modoRegistro) {
-        await registrarUsuario(nombre, email, password);
+        await registrarUsuario(nombre, email, password, avisoLeido);
       } else {
         await iniciarSesion(email, password);
       }
@@ -55,6 +58,7 @@ export default function LoginScreen() {
         error?.message ?? 'Ocurrió un error.'
       );
     } finally {
+      setPassword('');
       setCargando(false);
     }
   };
@@ -90,6 +94,7 @@ export default function LoginScreen() {
             <>
               <Text style={styles.label}>Nombre</Text>
               <TextInput
+                maxLength={80}
                 value={nombre}
                 onChangeText={setNombre}
                 placeholder="Ej: Matías"
@@ -102,6 +107,7 @@ export default function LoginScreen() {
 
           <Text style={styles.label}>Correo electrónico</Text>
           <TextInput
+            maxLength={254}
             value={email}
             onChangeText={setEmail}
             placeholder="correo@ejemplo.com"
@@ -115,9 +121,11 @@ export default function LoginScreen() {
           <Text style={styles.label}>Contraseña</Text>
           <View style={styles.passwordContenedor}>
             <TextInput
+              maxLength={128}
+              autoCorrect={false}
               value={password}
               onChangeText={setPassword}
-              placeholder="Mínimo 6 caracteres"
+              placeholder={modoRegistro ? "Mínimo 12 caracteres" : "Tu contraseña"}
               placeholderTextColor="#9AA09A"
               secureTextEntry={!mostrarPassword}
               autoCapitalize="none"
@@ -136,6 +144,19 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
+          <TouchableOpacity onPress={() => router.push('/aviso-privacidad')} disabled={cargando} style={{ paddingVertical: 14 }}>
+            <Text style={styles.cambiarModoTexto}>Leer información de privacidad</Text>
+          </TouchableOpacity>
+          {modoRegistro && <TouchableOpacity accessibilityRole="checkbox" accessibilityState={{ checked: avisoLeido }} disabled={cargando} onPress={() => setAvisoLeido(v => !v)} style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+            <Ionicons name={avisoLeido ? 'checkbox' : 'square-outline'} size={24} color="#2E7D32" />
+            <Text style={{ flex: 1, color: '#303630', lineHeight: 20 }}>He leído la información sobre el uso de mis datos.</Text>
+          </TouchableOpacity>}
+          {!modoRegistro && <TouchableOpacity disabled={cargando} onPress={async () => {
+            setCargando(true);
+            try { await recuperarPassword(email); Alert.alert('Recuperar contraseña', 'Si existe una cuenta con ese correo, recibirás las instrucciones.'); }
+            catch (e) { Alert.alert('Recuperar contraseña', e instanceof Error ? e.message : 'Intenta nuevamente.'); }
+            finally { setCargando(false); }
+          }}><Text style={styles.cambiarModoTexto}>Olvidé mi contraseña</Text></TouchableOpacity>}
           <TouchableOpacity
             style={[styles.boton, cargando && styles.botonDeshabilitado]}
             disabled={cargando}

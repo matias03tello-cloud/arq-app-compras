@@ -1,133 +1,108 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getApp } from 'firebase/app';
-import type { User } from 'firebase/auth';
-import * as FirebaseAuth from 'firebase/auth';
-import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
-import { db } from '../firebase';
-
-// Importar db arriba inicializa el Firebase App que ya existe en tu firebase.ts.
-// Así NO necesitamos tocar ni copiar tu configuración actual de Firebase.
-const app = getApp();
-
-const {
+import {
   createUserWithEmailAndPassword,
-  getAuth,
-  initializeAuth,
+  EmailAuthProvider,
+  getAuth, initializeAuth,
+  reauthenticateWithCredential,
+  sendEmailVerification, sendPasswordResetEmail,
   signInWithEmailAndPassword,
-  signOut,
-  updateProfile,
-} = FirebaseAuth;
+  signOut, updateProfile,
+  type Auth,
+  type User,
+} from 'firebase/auth';
+import { doc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { AVISO_VERSION } from '../constants/privacidad';
+import { app, db } from '../firebase';
+import { codigoError, mensajeSeguro } from '../security/errors';
+import { limpiarPersistenciaWebAnterior } from '../security/legacyPersistence';
+import { sessionPersistence } from '../security/persistence';
+import { texto, validarPassword } from '../security/validation';
+import { limpiarTemporales } from './archivosPrivados';
 
-// Expo/React Native expone esta función en tiempo de ejecución.
-// El cast evita un falso error de tipos de TypeScript con la resolución web.
-const getReactNativePersistence = (FirebaseAuth as any).getReactNativePersistence;
+let instance: Auth;
+try { instance = initializeAuth(app, { persistence: sessionPersistence }); }
+catch (e) {
+  if (codigoError(e) !== 'auth/already-initialized') throw e;
+  instance = getAuth(app);
+}
+export const auth = instance;
+let operando = false;
+const listeners = new Set<() => void>();
+export const operacionCuentaEnCurso = () => operando;
+export const observarOperacionCuenta = (callback: () => void) => { listeners.add(callback); return () => { listeners.delete(callback); }; };
+function setOperando(value: boolean) { operando = value; listeners.forEach(fn => fn()); }
 
-let authInstance;
-
-try {
-  authInstance = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage),
-  });
-} catch {
-  // Evita "Auth already initialized" durante Fast Refresh.
-  authInstance = getAuth(app);
+export async function prepararSesion(): Promise<void> {
+  // No importar credenciales antiguas en texto plano al almacén cifrado.
+  const keys = await AsyncStorage.getAllKeys();
+  const legacy = keys.filter(k => k.startsWith('firebase:') && k.includes(String(app.options.apiKey)));
+  if (legacy.length) await AsyncStorage.multiRemove(legacy);
+  await limpiarPersistenciaWebAnterior(String(app.options.apiKey));
+  await limpiarTemporales();
 }
 
-export const auth = authInstance;
-
-function mensajeErrorAuth(error: any): string {
-  const codigo = error?.code ?? '';
-
-  switch (codigo) {
-    case 'auth/invalid-email':
-      return 'El correo electrónico no es válido.';
-    case 'auth/email-already-in-use':
-      return 'Ese correo ya está registrado.';
-    case 'auth/weak-password':
-      return 'La contraseña debe tener al menos 6 caracteres.';
-    case 'auth/invalid-credential':
-      return 'Correo o contraseña incorrectos.';
-    case 'auth/user-disabled':
-      return 'Esta cuenta fue deshabilitada.';
-    case 'auth/too-many-requests':
-      return 'Se hicieron demasiados intentos. Intenta nuevamente más tarde.';
-    case 'auth/network-request-failed':
-      return 'No se pudo conectar. Revisa tu conexión a internet.';
-    case 'auth/configuration-not-found':
-      return 'Firebase Authentication aún no está activado. En Firebase Console ve a Authentication > Comenzar > Sign-in method > Email/Password y actívalo.';
-    default:
-      return error?.message || 'Ocurrió un error con la cuenta.';
-  }
-}
-
-export async function registrarUsuario(
-  nombre: string,
-  email: string,
-  password: string
-): Promise<User> {
+export async function registrarUsuario(nombre: string, email: string, password: string, avisoLeido: boolean): Promise<User> {
+  const displayName = texto(nombre, 'Nombre o apodo', 80, 1);
+  validarPassword(password);
+  if (!avisoLeido) throw new Error('Lee la información de privacidad antes de crear tu cuenta.');
+  setOperando(true);
+  let created: User | undefined;
   try {
-    const credencial = await createUserWithEmailAndPassword(
-      auth,
-      email.trim().toLowerCase(),
-      password
-    );
-
-    await updateProfile(credencial.user, {
-      displayName: nombre.trim(),
+    const cred = await createUserWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
+    created = cred.user;
+    await updateProfile(created, { displayName });
+    // Es constancia de lectura, no consentimiento universal ni base de licitud.
+    await setDoc(doc(db, 'usuarios', created.uid, 'privacidad', 'aviso'), {
+      version: AVISO_VERSION, leidoEn: serverTimestamp(),
     });
-
-    await setDoc(
-      doc(db, 'usuarios', credencial.user.uid),
-      {
-        uid: credencial.user.uid,
-        nombre: nombre.trim(),
-        email: credencial.user.email,
-        creadoEn: serverTimestamp(),
-      },
-      { merge: true }
-    );
-
-    return credencial.user;
-  } catch (error) {
-    throw new Error(mensajeErrorAuth(error));
-  }
+    return created;
+  } catch (e) {
+    if (created) {
+      // No indicar "cuenta no creada" después de que Auth ya la creó.
+      await signOut(auth);
+      throw new Error('La cuenta se creó, pero no se completó su configuración. Inicia sesión para continuar y revisa Privacidad y datos.');
+    }
+    throw new Error(mensajeSeguro(e));
+  } finally { setOperando(false); }
 }
 
-export async function iniciarSesion(
-  email: string,
-  password: string
-): Promise<User> {
-  try {
-    const credencial = await signInWithEmailAndPassword(
-      auth,
-      email.trim().toLowerCase(),
-      password
-    );
-
-    return credencial.user;
-  } catch (error) {
-    throw new Error(mensajeErrorAuth(error));
-  }
+export async function iniciarSesion(email: string, password: string): Promise<User> {
+  setOperando(true);
+  try { return (await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password)).user; }
+  catch (e) { throw new Error(mensajeSeguro(e)); }
+  finally { setOperando(false); }
 }
 
 export async function cerrarSesion(): Promise<void> {
-  try {
-    await signOut(auth);
-  } catch (error) {
-    throw new Error(mensajeErrorAuth(error));
+  try { await signOut(auth); }
+  catch (e) { throw new Error(mensajeSeguro(e)); }
+  await limpiarTemporales();
+}
+
+export async function recuperarPassword(email: string): Promise<void> {
+  if (!email.trim()) throw new Error('Ingresa tu correo electrónico.');
+  try { await sendPasswordResetEmail(auth, email.trim().toLowerCase()); }
+  catch (e) {
+    if (!['auth/user-not-found', 'auth/invalid-credential'].includes(codigoError(e))) throw new Error(mensajeSeguro(e));
   }
 }
 
-export function usuarioActual(): User | null {
-  return auth.currentUser;
+export async function verificarCorreo(): Promise<void> {
+  const user = auth.currentUser;
+  if (!user) throw new Error('Inicia sesión.');
+  try { await sendEmailVerification(user); } catch (e) { throw new Error(mensajeSeguro(e)); }
 }
 
+export async function reautenticar(password: string): Promise<User> {
+  const user = auth.currentUser;
+  if (!user?.email) throw new Error('Inicia sesión con correo y contraseña.');
+  try { await reauthenticateWithCredential(user, EmailAuthProvider.credential(user.email, password)); }
+  catch (e) { throw new Error(mensajeSeguro(e)); }
+  await user.getIdToken(true);
+  return user;
+}
+export function usuarioActual(): User | null { return auth.currentUser; }
 export function obtenerUidActual(): string {
-  const usuario = auth.currentUser;
-
-  if (!usuario) {
-    throw new Error('Debes iniciar sesión para realizar esta acción.');
-  }
-
-  return usuario.uid;
+  if (!auth.currentUser) throw new Error('Debes iniciar sesión para realizar esta acción.');
+  return auth.currentUser.uid;
 }

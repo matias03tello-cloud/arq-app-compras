@@ -1,32 +1,37 @@
 {
   "name": "mi-app-local",
   "main": "expo-router/entry",
-  "version": "1.0.0",
+  "version": "5.0.0",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "node --experimental-strip-types --test tests/security.test.mjs functions/test/*.test.js",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-frescapp-security \"node --test tests/firestore.rules.test.mjs\"",
+    "test:integration": "firebase emulators:exec --only auth,firestore --project demo-frescapp-security \"node --test tests/privacy.integration.test.mjs\""
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-ml-kit/text-recognition": "^2.0.0",
-    "@react-navigation/bottom-tabs": "^7.4.0",
-    "@react-navigation/elements": "^2.6.3",
-    "@react-navigation/native": "^7.1.8",
     "expo": "^57.0.20",
     "expo-camera": "~57.0.4",
     "expo-constants": "~57.0.17",
+    "expo-crypto": "~57.0.2",
     "expo-dev-client": "~57.0.18",
+    "expo-file-system": "~57.0.6",
     "expo-font": "~57.0.3",
     "expo-haptics": "~57.0.2",
     "expo-image": "~57.0.4",
     "expo-image-manipulator": "~57.0.16",
     "expo-linking": "~57.0.9",
     "expo-router": "~57.0.19",
+    "expo-secure-store": "~57.0.3",
+    "expo-sharing": "~57.0.18",
     "expo-splash-screen": "~57.0.8",
     "expo-status-bar": "~57.0.1",
     "expo-symbols": "~57.0.2",
@@ -45,9 +50,11 @@
     "react-native-worklets": "0.10.1"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@types/react": "~19.2.4",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~57.0.2",
+    "firebase-tools": "^14.17.0",
     "typescript": "~6.0.3"
   },
   "private": true
