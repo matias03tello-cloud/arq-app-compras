@@ -1,50 +1,45 @@
-# Welcome to your Expo app 👋
+# 🍏 FrescApp: Gestor de Despensa Inteligente
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**Promesa:** Tu despensa en el bolsillo: escanea, organiza y revisa tus alimentos antes de que venzan.
 
-## Get started
+FrescApp es un proyecto universitario que ayuda a gestionar los alimentos del hogar y reducir el desperdicio mediante el registro de productos y el seguimiento de sus fechas de vencimiento.
 
-1. Install dependencies
+## 👥 Integrantes del equipo
 
-   ```bash
-   npm install
-   ```
+| Integrante | Rol |
+| --- | --- |
+| Benjamín Quijada | Ingeniería de Datos y Backend |
+| Sebastián Silva | Frontend y UI/UX |
+| Matías Tello | IA y Hardware |
 
-2. Start the app
+## 📎 Enlaces y entregables
 
-   ```bash
-   npx expo start
-   ```
+**Prototipo navegable (Figma):** [text](https://www.figma.com/proto/HFcCmtUFEpJPL2AxcL89Ll/Sin-t%C3%ADtulo?node-id=3-17&p=f&t=1ukiLqVDBpX9yR0k-1&scaling=scale-down&content-scaling=fixed&page-id=3%3A13&starting-point-node-id=3%3A17&show-proto-sidebar=1)
 
-In the output, you'll find options to open the app in a
+<!-- Reemplaza la línea anterior por: **Prototipo navegable (Figma):** [Abrir prototipo](URL_REAL_DEL_PROTOTIPO) -->
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+| Entregable | Enlace |
+| --- | --- |
+| Documento de propuesta | [Ver documento PDF](./docs/FrescAPP.pdf) |
+| Mapa del producto | [Ver mapa del producto](./docs/Mapa_Producto.png) |
+| Diagrama de arquitectura | [Ver diagrama de arquitectura](./docs/Diagrama_Arquitectura.png) |
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## 📱 Funcionalidades principales
 
-## Get a fresh project
+- Registro e inicio de sesión.
+- Escaneo de códigos de barras para identificar productos del catálogo.
+- Lectura local de fechas mediante OCR y confirmación manual.
+- Despensa personal con cantidades y vencimientos.
+- Resumen de productos próximos a vencer y calendario.
 
-When you're ready, run:
+## 🛠️ Tecnologías
 
-```bash
-npm run reset-project
-```
+- React Native y Expo para la aplicación móvil.
+- TypeScript y JavaScript para el desarrollo.
+- ML Kit Text Recognition para el procesamiento local de texto.
+- Firebase Authentication para las cuentas de usuario.
+- Cloud Firestore para el catálogo y los inventarios.
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Estado del proyecto
 
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Proyecto universitario en desarrollo y pruebas en Android. El prototipo de Figma permite explorar la propuesta de navegación; la implementación de la aplicación se encuentra en este repositorio.
