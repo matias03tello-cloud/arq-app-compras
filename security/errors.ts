@@ -1,3 +1,4 @@
+/** Traduce errores a mensajes públicos sin mostrar detalles internos ni datos personales. */
 export function codigoError(error: unknown): string {
   return typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '';
 }

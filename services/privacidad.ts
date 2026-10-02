@@ -1,3 +1,4 @@
+/** Orquesta las solicitudes de privacidad. El borrado de cuenta se procesa en el backend. */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { reload, verifyBeforeUpdateEmail } from 'firebase/auth';
 import { collection, doc, getDocFromServer, getDocsFromServer, query, serverTimestamp, setDoc, where } from 'firebase/firestore';

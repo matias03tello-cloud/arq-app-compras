@@ -1,3 +1,4 @@
+/** Endpoints y tareas de privacidad. El UID se obtiene de la autenticación, nunca del cuerpo de la solicitud. */
 'use strict';
 const { initializeApp } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');

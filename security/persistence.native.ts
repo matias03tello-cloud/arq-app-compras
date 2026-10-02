@@ -1,3 +1,4 @@
+/** Persistencia móvil mediante SecureStore y escritura fragmentada de sesiones. */
 import { randomUUID } from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import * as FirebaseAuth from 'firebase/auth';

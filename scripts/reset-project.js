@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/** Utilidad original para reiniciar la plantilla. No se utiliza para aplicar esta limpieza. */
 
 /**
  * This script is used to reset the project to a blank state.

@@ -1,3 +1,4 @@
+/** Validaciones de entrada y categorías compartidas. Complementan las reglas del servidor. */
 export const CATEGORIAS = ['Lacteos', 'Carnes', 'Frutas', 'Verduras', 'Despensa', 'Bebidas', 'Congelados', 'Snacks', 'Otros'] as const;
 
 export function texto(value: unknown, campo: string, max: number, min = 0): string {

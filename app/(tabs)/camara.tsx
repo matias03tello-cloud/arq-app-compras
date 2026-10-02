@@ -1,3 +1,4 @@
+/** Flujo de código de barras, alta manual y OCR local con confirmación de la fecha. */
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system/legacy';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
@@ -24,24 +25,16 @@ import {
   guardarProductoCatalogo,
   ProductoCatalogo,
   ProductoInventario,
+  NuevoProductoInventario,
 } from '../../services/productos';
+
+import { CATEGORIAS } from '../../security/validation';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 type PasoFlujo = 'INICIAL' | 'REGISTRO_MANUAL' | 'FOTO_FECHA' | 'EXITO';
 
-const CATEGORIAS: CategoriaProducto[] = [
-  'Lacteos',
-  'Carnes',
-  'Frutas',
-  'Verduras',
-  'Despensa',
-  'Bebidas',
-  'Congelados',
-  'Snacks',
-  'Otros',
-];
-
+// Extrae candidatos del OCR; la validación de calendario está centralizada en fechas.ts.
 function normalizarFecha(textoOCR: string): string | null {
   if (!textoOCR) return null;
 
@@ -174,6 +167,7 @@ export default function PantallaCamara() {
     }
   };
 
+  // Reduce el tamaño de la imagen para OCR y elimina el original temporal.
   const tomarFoto = async () => {
     if (!cameraRef.current) return null;
 
@@ -217,6 +211,7 @@ export default function PantallaCamara() {
     }
   };
 
+  // Envía datos del producto; el servicio asigna ID y fecha de registro reales.
   const guardarProductoEnDespensa = async () => {
     if (procesando) return;
     if (!productoActual) return;
@@ -233,8 +228,7 @@ export default function PantallaCamara() {
       return;
     }
 
-    const nuevoProducto: ProductoInventario = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    const nuevoProducto: NuevoProductoInventario = {
       codigoBarras: productoActual.codigoBarras,
       nombre: productoActual.nombre,
       marca: productoActual.marca,
@@ -243,7 +237,6 @@ export default function PantallaCamara() {
       unidad: productoActual.unidad,
       cantidad,
       vencimiento: fecha,
-      fechaRegistro: new Date().toLocaleDateString('es-CL'),
     };
 
     try {

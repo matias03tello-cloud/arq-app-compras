@@ -1,3 +1,4 @@
+/** Centraliza sesión, registro y reautenticación para que las pantallas compartan el mismo estado. */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   createUserWithEmailAndPassword,

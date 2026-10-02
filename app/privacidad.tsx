@@ -1,3 +1,4 @@
+/** Interfaz de exportación, corrección y eliminación de datos; las operaciones sensibles exigen reautenticación. */
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';

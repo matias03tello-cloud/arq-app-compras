@@ -1,5 +1,7 @@
+/** Comprueba integridad de sesiones fragmentadas, fallos de escritura y validaciones de entrada. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { Buffer } from 'node:buffer';
 import { createChunkedStorage } from '../security/chunkedStorage.ts';
 import { codigoValido, idValido, validarPassword } from '../security/validation.ts';
 

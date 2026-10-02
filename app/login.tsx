@@ -1,3 +1,4 @@
+/** Formulario de acceso, registro y recuperación. La autenticación se delega al servicio auth. */
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';

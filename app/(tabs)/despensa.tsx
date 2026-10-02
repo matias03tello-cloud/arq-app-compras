@@ -1,3 +1,4 @@
+/** Lista virtualizada del inventario y acciones de borrado confirmadas por el usuario. */
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';

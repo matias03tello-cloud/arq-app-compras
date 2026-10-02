@@ -1,3 +1,4 @@
+/** Textos y versión del aviso de privacidad en borrador; responsable y contacto se configuran por entorno. */
 export const AVISO_VERSION = '2026-09-12-borrador';
 export const RESPONSABLE = process.env.EXPO_PUBLIC_PRIVACY_RESPONSABLE?.trim() || '';
 export const CONTACTO_PRIVACIDAD = process.env.EXPO_PUBLIC_PRIVACY_EMAIL?.trim() || '';

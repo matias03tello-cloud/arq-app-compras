@@ -1,3 +1,4 @@
+/** Limpieza de sesiones web antiguas limitada a las claves de este proyecto. */
 // Antes de observar Auth, borrar solo las claves antiguas de esta app.
 export async function limpiarPersistenciaWebAnterior(apiKey: string): Promise<void> {
   if (typeof window === 'undefined') return;

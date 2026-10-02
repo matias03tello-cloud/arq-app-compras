@@ -1,0 +1,27 @@
+{
+  "fuente": "https://static.openfoodfacts.org/data/en.openfoodfacts.org.products.csv.gz",
+  "fecha_http": "2026-09-29T12:17:18Z",
+  "descargado": "2026-09-30",
+  "bytes": 1275171186,
+  "sha256": "f72687ee8bc6522054fe69dbfda6b91902c16af1ec2e043cde27bc6c29ad8176",
+  "filas_globales": 4535553,
+  "filas_chile": 6442,
+  "licencia": "ODbL 1.0",
+  "filtro": "countries_tags contiene etiqueta exacta en:chile",
+  "columnas_conservadas": [
+    "registro_global",
+    "code",
+    "url",
+    "product_name",
+    "brands",
+    "quantity",
+    "countries_tags",
+    "categories_tags",
+    "categories",
+    "data_quality_errors_tags",
+    "unique_scans_n",
+    "last_modified_t",
+    "completeness"
+  ],
+  "segundos": 209
+}

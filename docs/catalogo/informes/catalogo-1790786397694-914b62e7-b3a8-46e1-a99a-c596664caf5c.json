@@ -1,0 +1,864 @@
+{
+  "version": 1,
+  "fecha": "2026-09-30T16:39:57.692Z",
+  "modo": "aplicar",
+  "proyecto": "super-ahorro-app",
+  "emulador": false,
+  "sha256Archivo": "22f6741e66256d4860e7b582b5289f77852fdf2f99c525d6f16406c3f687003e",
+  "filas": 50,
+  "registros": [
+    {
+      "fila": 1,
+      "producto": {
+        "codigoBarras": "7800120162168",
+        "nombre": "Avena Tradicional",
+        "marca": "Selecta",
+        "categoria": "Despensa",
+        "formato": "900 g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1493; export global, registro 3581254. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 2,
+      "producto": {
+        "codigoBarras": "7800120162229",
+        "nombre": "Check sabor Yogurt",
+        "marca": "Vivo,Carozzi",
+        "categoria": "Despensa",
+        "formato": "350 g / 12.3 oz",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1495; export global, registro 3581256. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 3,
+      "producto": {
+        "codigoBarras": "7800120162236",
+        "nombre": "Check Cacao",
+        "marca": "Vivo",
+        "categoria": "Despensa",
+        "formato": "360 g / 12.7 oz",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1496; export global, registro 3581257. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 4,
+      "producto": {
+        "codigoBarras": "7800120163134",
+        "nombre": "Granola con trocitos de Berries",
+        "marca": "Vivo,Carozzi",
+        "categoria": "Despensa",
+        "formato": "370 g / 13.1 oz",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1499; export global, registro 3581262. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 5,
+      "producto": {
+        "codigoBarras": "7800120163172",
+        "nombre": "VIVO GRANOLA CON TROCITOS DE BERRIES",
+        "marca": "Vivo",
+        "categoria": "Despensa",
+        "formato": "330g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1500; export global, registro 3581264. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 6,
+      "producto": {
+        "codigoBarras": "7800120164438",
+        "nombre": "vivo good",
+        "marca": "Carozzi",
+        "categoria": "Despensa",
+        "formato": "330 g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1503; export global, registro 3581272. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 7,
+      "producto": {
+        "codigoBarras": "7800120165930",
+        "nombre": "Vivo Proteína Granola Cacao",
+        "marca": "Vivo",
+        "categoria": "Despensa",
+        "formato": "300 g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1504; export global, registro 3581273. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 8,
+      "producto": {
+        "codigoBarras": "7800120168917",
+        "nombre": "Vivo muesli cacao",
+        "marca": "Vivo",
+        "categoria": "Despensa",
+        "formato": "800g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1505; export global, registro 3581275. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 9,
+      "producto": {
+        "codigoBarras": "7800120169235",
+        "nombre": "Vivo line con barries",
+        "marca": "Vivo",
+        "categoria": "Despensa",
+        "formato": "330 g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1507; export global, registro 3581277. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 10,
+      "producto": {
+        "codigoBarras": "7800120170163",
+        "nombre": "Vivo Avena instantánea",
+        "marca": "Vivo",
+        "categoria": "Despensa",
+        "formato": "800 g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1514; export global, registro 3581284. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 11,
+      "producto": {
+        "codigoBarras": "7802900000363",
+        "nombre": "Yogurth Gold",
+        "marca": "Soprole",
+        "categoria": "Lacteos",
+        "formato": "165 g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 3370; export global, registro 3584635. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 12,
+      "producto": {
+        "codigoBarras": "7802900001193",
+        "nombre": "Mantecoso Quilque",
+        "marca": "Soprole",
+        "categoria": "Lacteos",
+        "formato": "500 g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 3376; export global, registro 3584647. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 13,
+      "producto": {
+        "codigoBarras": "7802900001292",
+        "nombre": "LECHE NATURAL SEMIDESCREMADA",
+        "marca": "Soprole",
+        "categoria": "Lacteos",
+        "formato": "1 LITRO",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 3382; export global, registro 3584653. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 14,
+      "producto": {
+        "codigoBarras": "7802900001339",
+        "nombre": "Queso laminado mantecoso quilque",
+        "marca": "Soprole",
+        "categoria": "Lacteos",
+        "formato": "15 láminas 250g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 3384; export global, registro 3584655. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 15,
+      "producto": {
+        "codigoBarras": "7802900001407",
+        "nombre": "Protein",
+        "marca": "Soprole",
+        "categoria": "Lacteos",
+        "formato": "155 g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 3388; export global, registro 3584659. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 16,
+      "producto": {
+        "codigoBarras": "7802900002213",
+        "nombre": "Yogurt Americano Durazno",
+        "marca": "Soprole",
+        "categoria": "Lacteos",
+        "formato": "155g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 3401; export global, registro 3584677. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 17,
+      "producto": {
+        "codigoBarras": "7802900002220",
+        "nombre": "Yoghurt 1+1",
+        "marca": "Soprole",
+        "categoria": "Lacteos",
+        "formato": "155 g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 3402; export global, registro 3584678. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 18,
+      "producto": {
+        "codigoBarras": "7802900003036",
+        "nombre": "leche con cafe",
+        "marca": "soprole",
+        "categoria": "Lacteos",
+        "formato": "200 ml",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 3424; export global, registro 3584705. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 19,
+      "producto": {
+        "codigoBarras": "7802900003357",
+        "nombre": "Kéfir Sabor Natural",
+        "marca": "Soprole",
+        "categoria": "Lacteos",
+        "formato": "1 L",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 3428; export global, registro 3584712. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 20,
+      "producto": {
+        "codigoBarras": "7802900003371",
+        "nombre": "Kefir Berries",
+        "marca": "Kefir, Soprole",
+        "categoria": "Lacteos",
+        "formato": "1L",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 3430; export global, registro 3584714. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 21,
+      "producto": {
+        "codigoBarras": "7801610000571",
+        "nombre": "Coca-Cola Sabor Original",
+        "marca": "Coca-Cola",
+        "categoria": "Bebidas",
+        "formato": "591 ml",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1788; export global, registro 3581850. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 22,
+      "producto": {
+        "codigoBarras": "7801610001622",
+        "nombre": "Coca-Cola",
+        "marca": "Coca-Cola",
+        "categoria": "Bebidas",
+        "formato": "1500 ml",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1798; export global, registro 3581860. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 23,
+      "producto": {
+        "codigoBarras": "7801610001974",
+        "nombre": "Coca-Cola 1 Litro",
+        "marca": "Coca-Cola",
+        "categoria": "Bebidas",
+        "formato": "1 l",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1799; export global, registro 3581862. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 24,
+      "producto": {
+        "codigoBarras": "7801610002117",
+        "nombre": "Fanta",
+        "marca": "coca cola",
+        "categoria": "Bebidas",
+        "formato": "350 ml",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1800; export global, registro 3581863. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 25,
+      "producto": {
+        "codigoBarras": "7801610002858",
+        "nombre": "FANTA",
+        "marca": "FANTA",
+        "categoria": "Bebidas",
+        "formato": "350 ml",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1803; export global, registro 3581870. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 26,
+      "producto": {
+        "codigoBarras": "7801610005262",
+        "nombre": "Sprite",
+        "marca": "Sprite",
+        "categoria": "Bebidas",
+        "formato": "1.5 L",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1809; export global, registro 3581878. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 27,
+      "producto": {
+        "codigoBarras": "7801610220061",
+        "nombre": "Fanta",
+        "marca": "CocaCola",
+        "categoria": "Bebidas",
+        "formato": "220 ml",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1824; export global, registro 3581896. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 28,
+      "producto": {
+        "codigoBarras": "7801610285817",
+        "nombre": "Fanta Sabor Pomelo",
+        "marca": "Fanta",
+        "categoria": "Bebidas",
+        "formato": "591 ml",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1830; export global, registro 3581912. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 29,
+      "producto": {
+        "codigoBarras": "7801610323236",
+        "nombre": "Coca cola",
+        "marca": "Coca-Cola",
+        "categoria": "Bebidas",
+        "formato": "3L",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1834; export global, registro 3581919. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 30,
+      "producto": {
+        "codigoBarras": "7801610350256",
+        "nombre": "Coca Cola Zero",
+        "marca": "Coca-Cola",
+        "categoria": "Bebidas",
+        "formato": "2 l",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1839; export global, registro 3581925. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 31,
+      "producto": {
+        "codigoBarras": "7800955252140",
+        "nombre": "Barra Proteica - Choco Coco",
+        "marca": "Gibit",
+        "categoria": "Snacks",
+        "formato": "1 barra (45g)",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1557; export global, registro 3581410. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 32,
+      "producto": {
+        "codigoBarras": "7801420001782",
+        "nombre": "Galletas de Arroz Dulces",
+        "marca": "Tucapel",
+        "categoria": "Snacks",
+        "formato": "150g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1722; export global, registro 3581738. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 33,
+      "producto": {
+        "codigoBarras": "7801930017242",
+        "nombre": "SALAMINI Snack",
+        "marca": "Receta del Abuelo",
+        "categoria": "Snacks",
+        "formato": "100 g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 2113; export global, registro 3582447. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 34,
+      "producto": {
+        "codigoBarras": "7802000001505",
+        "nombre": "Doritos",
+        "marca": "Evercrisp",
+        "categoria": "Snacks",
+        "formato": "180 gramos",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 2156; export global, registro 3582520. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 35,
+      "producto": {
+        "codigoBarras": "7802000003219",
+        "nombre": "CHOCO CRACS",
+        "marca": "Evercrisp",
+        "categoria": "Snacks",
+        "formato": "160 g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 2160; export global, registro 3582525. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 36,
+      "producto": {
+        "codigoBarras": "7802000004018",
+        "nombre": "Barra de cereal frutilla Quaker",
+        "marca": "Quaker",
+        "categoria": "Snacks",
+        "formato": "20g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 2163; export global, registro 3582528. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 37,
+      "producto": {
+        "codigoBarras": "7802000004056",
+        "nombre": "Barra de Cereal Frutilla a la Crema",
+        "marca": "Quaker",
+        "categoria": "Snacks",
+        "formato": "120 g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 2164; export global, registro 3582529. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 38,
+      "producto": {
+        "codigoBarras": "7802000005541",
+        "nombre": "Twistos",
+        "marca": "pepsico",
+        "categoria": "Snacks",
+        "formato": "43 g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 2165; export global, registro 3582530. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 39,
+      "producto": {
+        "codigoBarras": "7802000005831",
+        "nombre": "Galletón Tipo Casero Chips Sabor Chocolate",
+        "marca": "Quaker",
+        "categoria": "Snacks",
+        "formato": "40 g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 2167; export global, registro 3582532. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 40,
+      "producto": {
+        "codigoBarras": "7802000009280",
+        "nombre": "Stax sabor Crema y Cebolla",
+        "marca": "Lay's,Stax",
+        "categoria": "Snacks",
+        "formato": "140 g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 2168; export global, registro 3582538. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 41,
+      "producto": {
+        "codigoBarras": "7801220003948",
+        "nombre": "papas pre-fritas",
+        "marca": "Minuto Verde",
+        "categoria": "Congelados",
+        "formato": "2.5 kg",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1577; export global, registro 3581465. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 42,
+      "producto": {
+        "codigoBarras": "7801235001274",
+        "nombre": "Filetes de merluza",
+        "marca": "San José",
+        "categoria": "Congelados",
+        "formato": "500g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1600; export global, registro 3581522. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 43,
+      "producto": {
+        "codigoBarras": "7801552000196",
+        "nombre": "Bongelata sabor tiramisú",
+        "marca": "Trendy",
+        "categoria": "Congelados",
+        "formato": "1 litro",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 1774; export global, registro 3581822. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 44,
+      "producto": {
+        "codigoBarras": "7802408000582",
+        "nombre": "Palito Mora Mora",
+        "marca": "Fruna",
+        "categoria": "Congelados",
+        "formato": "65 ml",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 2747; export global, registro 3583574. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 45,
+      "producto": {
+        "codigoBarras": "7802710566240",
+        "nombre": "Sahne-Nuss",
+        "marca": "Nestlé",
+        "categoria": "Congelados",
+        "formato": "1 litro",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 3147; export global, registro 3584210. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 46,
+      "producto": {
+        "codigoBarras": "7802710832116",
+        "nombre": "Savory helado de leche sabor vainilla con sucralosa",
+        "marca": "Nestlé",
+        "categoria": "Congelados",
+        "formato": "1 litro",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 3149; export global, registro 3584212. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 47,
+      "producto": {
+        "codigoBarras": "7804653610004",
+        "nombre": "Papas Pre-Fritas",
+        "marca": "Mourra",
+        "categoria": "Congelados",
+        "formato": "2.5 Kg",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 4962; export global, registro 3587699. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 48,
+      "producto": {
+        "codigoBarras": "7804659650202",
+        "nombre": "NotIceCream Cookies & Cream",
+        "marca": "NotCo,NotIceCream",
+        "categoria": "Congelados",
+        "formato": "316 g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 5014; export global, registro 3587844. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 49,
+      "producto": {
+        "codigoBarras": "7804659650387",
+        "nombre": "NotBurger",
+        "marca": "NotCo,NotBurger",
+        "categoria": "Congelados",
+        "formato": "100 g",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 5020; export global, registro 3587851. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    },
+    {
+      "fila": 50,
+      "producto": {
+        "codigoBarras": "7807910026235",
+        "nombre": "Fudge Brownie Ice Cream",
+        "marca": "Cuisine & co.",
+        "categoria": "Congelados",
+        "formato": "780 gr",
+        "unidad": "unidad",
+        "activo": true
+      },
+      "procedencia": {
+        "fuente": "Open Food Facts; https://world.openfoodfacts.org; ODbL 1.0",
+        "evidencia": "Open Food Facts: chile-fuente.tsv, registro 5518; export global, registro 3588904. Contraste documental código/nombre/marca/formato. Sin prueba física."
+      },
+      "estado": "creado"
+    }
+  ],
+  "errores": [],
+  "avisos": [],
+  "estado": "completado"
+}

@@ -8,9 +8,9 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:unit": "node --experimental-strip-types --test tests/security.test.mjs functions/test/*.test.js",
+    "test:unit": "node --experimental-strip-types --test tests/security.test.mjs tests/fechas.test.mjs functions/test/*.test.js",
     "test:rules": "firebase emulators:exec --only firestore --project demo-frescapp-security \"node --test tests/firestore.rules.test.mjs\"",
     "test:integration": "firebase emulators:exec --only auth,firestore --project demo-frescapp-security \"node --test tests/privacy.integration.test.mjs\""
   },
