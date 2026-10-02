@@ -1,3 +1,4 @@
+/** Presenta el aviso configurado y registra su lectura para la cuenta actual. */
 import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { AVISO_LISTO, AVISO_PARRAFOS, CONTACTO_PRIVACIDAD, RESPONSABLE } from '../constants/privacidad';

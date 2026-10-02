@@ -1,3 +1,4 @@
+/** Integra handlers con Auth/Firestore emulados. No valida transporte HTTP ni App Check nativo. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { initializeApp as initializeClient, deleteApp } from 'firebase/app';

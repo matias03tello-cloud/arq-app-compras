@@ -1,3 +1,4 @@
+/** Declara las cinco pestañas activas y sus iconos de navegación. */
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import { StyleSheet, View } from 'react-native';

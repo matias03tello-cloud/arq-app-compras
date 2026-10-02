@@ -1,3 +1,4 @@
+/** Exporta el JSON elegido por el usuario y limpia las copias temporales creadas por la app. */
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { Platform } from 'react-native';

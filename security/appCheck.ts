@@ -1,3 +1,4 @@
+/** Proveedor de App Check para web. Expo elige la variante .native.ts en Android/iOS. */
 import type { FirebaseApp } from 'firebase/app';
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
 

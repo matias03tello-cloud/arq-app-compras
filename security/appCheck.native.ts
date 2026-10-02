@@ -1,3 +1,4 @@
+/** Punto de integración nativa pendiente. Nunca simula tokens de atestación. */
 import type { FirebaseApp } from 'firebase/app';
 
 // Integración nativa pendiente de registrar Android/iOS y elegir proveedor.

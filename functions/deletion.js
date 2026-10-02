@@ -1,3 +1,4 @@
+/** Secuencia de eliminación reintentable y validación de autenticación reciente. */
 'use strict';
 
 function assertRecentAuthentication(auth, nowSeconds) {

@@ -1,3 +1,4 @@
+/** Resume la despensa y destaca vencimientos. Los datos siempre pertenecen al usuario autenticado. */
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';

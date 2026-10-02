@@ -1,3 +1,4 @@
+/** Entrada de navegación. Espera la preparación segura de sesión y protege las rutas privadas. */
 import { Stack } from 'expo-router';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { useEffect, useState, useSyncExternalStore } from 'react';

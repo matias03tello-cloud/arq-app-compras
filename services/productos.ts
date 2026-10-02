@@ -1,4 +1,5 @@
-import { collection, doc, getDoc, getDocs, setDoc } from 'firebase/firestore';
+/** Fuente única de tipos del producto y acceso al catálogo común o privado del usuario. */
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { CATEGORIAS, codigoValido, texto } from '../security/validation';
 import { obtenerUidActual } from './auth';
@@ -12,6 +13,10 @@ export interface ProductoInventario {
   id: string; codigoBarras: string; nombre: string; marca: string; categoria: CategoriaProducto;
   formato?: string; unidad?: string; cantidad: number; vencimiento: string; fechaRegistro: string;
 }
+// Firestore asigna el ID y el servicio registra la fecha de alta.
+export type NuevoProductoInventario = Omit<ProductoInventario, 'id' | 'fechaRegistro'>;
+
+/** Valida la entrada antes de guardar; las reglas siguen siendo obligatorias. */
 export function validarProducto(producto: ProductoCatalogo): ProductoCatalogo {
   if (!CATEGORIAS.includes(producto.categoria)) throw new Error('Categoría inválida.');
   return {
@@ -21,6 +26,7 @@ export function validarProducto(producto: ProductoCatalogo): ProductoCatalogo {
     activo: producto.activo === true,
   };
 }
+/** El catálogo privado del usuario tiene prioridad sobre el catálogo común. */
 export async function buscarProductoPorCodigo(codigoBarras: string): Promise<ProductoCatalogo | null> {
   const uid = obtenerUidActual();
   const codigo = codigoValido(codigoBarras);
@@ -34,13 +40,4 @@ export async function guardarProductoCatalogo(producto: ProductoCatalogo): Promi
   const uid = obtenerUidActual();
   const datos = validarProducto(producto);
   await setDoc(doc(db, 'usuarios', uid, 'productosPrivados', datos.codigoBarras), datos);
-}
-export async function obtenerProductosCatalogo(): Promise<ProductoCatalogo[]> {
-  const uid = obtenerUidActual();
-  const [comun, privado] = await Promise.all([
-    getDocs(collection(db, 'productos')), getDocs(collection(db, 'usuarios', uid, 'productosPrivados')),
-  ]);
-  const mapa = new Map<string, ProductoCatalogo>();
-  [...comun.docs, ...privado.docs].forEach(d => mapa.set(d.id, d.data() as ProductoCatalogo));
-  return Array.from(mapa.values()).filter(p => p.activo);
 }

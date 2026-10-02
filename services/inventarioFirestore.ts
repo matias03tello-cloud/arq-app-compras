@@ -1,18 +1,25 @@
+/** Operaciones de inventario. Conserva la lectura de registros v4 por su propietario original. */
 import { addDoc, collection, deleteDoc, doc, getDocs, limit, query, serverTimestamp, where, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { idValido } from '../security/validation';
 import { obtenerUidActual, usuarioActual } from './auth';
-import { ProductoInventario, validarProducto } from './productos';
+import { NuevoProductoInventario, ProductoInventario, validarProducto } from './productos';
 
-export type EstadoVencimiento = 'vencido' | 'urgente' | 'pronto' | 'atencion' | 'bien' | 'sin-fecha';
-export interface EstadoProducto { estado: EstadoVencimiento; dias: number | null; etiqueta: string; }
+import { normalizarFechaVencimiento } from './fechas';
+// Reexportar conserva los imports de las pantallas sin duplicar la lógica.
+export { fechaTextoADate, calcularDiasRestantes, obtenerEstadoVencimiento, ordenarPorVencimiento } from './fechas';
+export type { EstadoVencimiento, EstadoProducto } from './fechas';
 
+// Conserva valores por defecto para registros históricos incompletos.
 function normalizarProducto(data: Partial<ProductoInventario>, id: string): ProductoInventario {
   return { id, codigoBarras: data.codigoBarras ?? '', nombre: data.nombre ?? 'Producto',
     marca: data.marca ?? 'Sin marca', categoria: data.categoria ?? 'Otros', formato: data.formato ?? '',
     unidad: data.unidad ?? 'unidad', cantidad: Number(data.cantidad) > 0 ? Number(data.cantidad) : 1,
     vencimiento: data.vencimiento ?? 'Sin fecha', fechaRegistro: data.fechaRegistro ?? '' };
 }
+/** Consulta por UID y descarta respuestas que llegan tras cambiar de cuenta.
+ * Esta versión aún carga el inventario completo: la paginación es un cambio pendiente.
+ */
 export async function obtenerInventario(): Promise<ProductoInventario[]> {
   const usuario = usuarioActual();
   if (!usuario) return [];
@@ -28,14 +35,14 @@ export async function obtenerInventario(): Promise<ProductoInventario[]> {
     ...antiguo.docs.map(d => normalizarProducto(d.data(), `v4:${d.id}`)),
   ];
 }
-export async function agregarAlInventario(producto: ProductoInventario): Promise<ProductoInventario> {
+export async function agregarAlInventario(producto: NuevoProductoInventario): Promise<ProductoInventario> {
   const uid = obtenerUidActual();
   const catalogo = validarProducto({ ...producto, formato: producto.formato ?? '', unidad: producto.unidad ?? 'unidad', activo: true });
   if (!Number.isInteger(producto.cantidad) || producto.cantidad < 1 || producto.cantidad > 999) throw new Error('Cantidad inválida.');
-  if (!fechaTextoADate(producto.vencimiento)) throw new Error('Fecha de vencimiento inválida.');
+  const vencimiento = normalizarFechaVencimiento(producto.vencimiento);
   const { activo: _activo, ...campos } = catalogo;
   const fechaRegistro = new Date().toISOString();
-  const datos = { ...campos, cantidad: producto.cantidad, vencimiento: producto.vencimiento, fechaRegistro };
+  const datos = { ...campos, cantidad: producto.cantidad, vencimiento, fechaRegistro };
   const ref = await addDoc(collection(db, 'usuarios', uid, 'inventario'), { ...datos, creadoEn: serverTimestamp() });
   return { ...datos, id: `v5:${ref.id}` };
 }
@@ -48,6 +55,7 @@ export async function eliminarProductoInventario(id: string): Promise<void> {
   else throw new Error('Versión de registro inválida.');
   // La propiedad del documento antiguo también la valida Firestore, nunca solo la UI.
 }
+/** Borra en lotes acotados y comprueba la sesión antes de cada lote. */
 export async function vaciarInventarioUsuario(): Promise<number> {
   const uid = obtenerUidActual();
   let total = 0;
@@ -64,100 +72,3 @@ export async function vaciarInventarioUsuario(): Promise<number> {
   return total;
 }
 
-export function fechaTextoADate(fechaStr: string): Date | null {
-  if (!fechaStr || fechaStr === 'No visible' || fechaStr === 'Sin fecha') {
-    return null;
-  }
-
-  const partes = fechaStr.trim().split('/').map(Number);
-
-  if (partes.length === 3) {
-    const [dia, mes, anio] = partes;
-
-    if (!dia || !mes || !anio || mes < 1 || mes > 12 || dia < 1 || dia > 31) {
-      return null;
-    }
-
-    const fecha = new Date(anio, mes - 1, dia);
-
-    if (
-      fecha.getFullYear() !== anio ||
-      fecha.getMonth() !== mes - 1 ||
-      fecha.getDate() !== dia
-    ) {
-      return null;
-    }
-
-    return fecha;
-  }
-
-  if (partes.length === 2) {
-    const [mes, anio] = partes;
-    if (!mes || !anio || mes < 1 || mes > 12) return null;
-    return new Date(anio, mes, 0);
-  }
-
-  return null;
-}
-
-export function calcularDiasRestantes(fechaStr: string): number | null {
-  const fechaVencimiento = fechaTextoADate(fechaStr);
-  if (!fechaVencimiento) return null;
-
-  const hoy = new Date();
-  hoy.setHours(0, 0, 0, 0);
-  fechaVencimiento.setHours(0, 0, 0, 0);
-
-  return Math.ceil(
-    (fechaVencimiento.getTime() - hoy.getTime()) / 86400000
-  );
-}
-
-export function obtenerEstadoVencimiento(fechaStr: string): EstadoProducto {
-  const dias = calcularDiasRestantes(fechaStr);
-
-  if (dias === null) {
-    return { estado: 'sin-fecha', dias: null, etiqueta: 'Sin fecha' };
-  }
-
-  if (dias < 0) {
-    return {
-      estado: 'vencido',
-      dias,
-      etiqueta: `Vencido hace ${Math.abs(dias)} d`,
-    };
-  }
-
-  if (dias === 0) {
-    return { estado: 'urgente', dias, etiqueta: 'Vence hoy' };
-  }
-
-  if (dias <= 3) {
-    return { estado: 'urgente', dias, etiqueta: `Vence en ${dias} d` };
-  }
-
-  if (dias <= 7) {
-    return { estado: 'pronto', dias, etiqueta: `Vence en ${dias} d` };
-  }
-
-  if (dias <= 15) {
-    return { estado: 'atencion', dias, etiqueta: `Vence en ${dias} d` };
-  }
-
-  return { estado: 'bien', dias, etiqueta: `${dias} días` };
-}
-
-export function ordenarPorVencimiento(
-  lista: ProductoInventario[]
-): ProductoInventario[] {
-  return [...lista].sort((a, b) => {
-    const da = calcularDiasRestantes(a.vencimiento);
-    const db = calcularDiasRestantes(b.vencimiento);
-
-    if (da === null && db === null) return 0;
-    if (da === null) return 1;
-    if (db === null) return -1;
-
-    return da - db;
-  });
-}

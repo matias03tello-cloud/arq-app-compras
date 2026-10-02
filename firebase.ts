@@ -1,3 +1,4 @@
+/** Inicializa una sola instancia de Firebase. La configuración cliente es pública; las reglas protegen los datos. */
 import { getApp, getApps, initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { configureAppCheck } from './security/appCheck';

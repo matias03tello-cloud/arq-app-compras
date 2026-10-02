@@ -1,3 +1,4 @@
+/** Comprueba permisos y aislamiento entre usuarios usando el emulador de Firestore. */
 import { before, after, beforeEach, test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';

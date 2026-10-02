@@ -1,3 +1,4 @@
+/** Cronograma de vencimientos. Pendiente: virtualizar esta vista y paginar su carga. */
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';

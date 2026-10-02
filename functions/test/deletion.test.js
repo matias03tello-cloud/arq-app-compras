@@ -1,3 +1,4 @@
+/** Pruebas del orden de borrado, fallos parciales y autenticación reciente. */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { assertRecentAuthentication, deleteAccountData } = require('../deletion');

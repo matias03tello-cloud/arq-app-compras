@@ -1,0 +1,26 @@
+{
+  "fecha": "2026-09-30",
+  "filasFuente": 6442,
+  "total": 4092,
+  "baseConfirmada": 1000,
+  "ampliacionEsencialIncluida": 211,
+  "adicionalesEstaRevision": 2881,
+  "nuevosSiSoloTiene1000": 3092,
+  "nuevosSiTiene1211": 2881,
+  "excluidos": 2350,
+  "formatosNoInformados": 2338,
+  "conFormato": 1754,
+  "porCategoria": {
+    "Despensa": 1320,
+    "Snacks": 1006,
+    "Congelados": 114,
+    "Bebidas": 389,
+    "Lacteos": 574,
+    "Carnes": 290,
+    "Verduras": 54,
+    "Otros": 337,
+    "Frutas": 8
+  },
+  "bytesJsonPublico": 673632,
+  "advertenciaTamanio": "Tamaño serializado del esquema público; NO equivale al almacenamiento facturado de Firestore, que incluye nombres de documentos e índices."
+}
