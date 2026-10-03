@@ -3,7 +3,8 @@ import { addDoc, collection, deleteDoc, doc, getDocs, limit, query, serverTimest
 import { db } from '../firebase';
 import { idValido } from '../security/validation';
 import { obtenerUidActual, usuarioActual } from './auth';
-import { NuevoProductoInventario, ProductoInventario, validarProducto } from './productos';
+import { NuevoProductoInventario, ProductoInventario, validarProducto, buscarProductoPorCodigo } from './productos';
+import { cantidadValida, mismaIdentidad, UBICACIONES } from '../security/identidadProducto';
 
 import { normalizarFechaVencimiento } from './fechas';
 // Reexportar conserva los imports de las pantallas sin duplicar la lógica.
@@ -15,7 +16,8 @@ function normalizarProducto(data: Partial<ProductoInventario>, id: string): Prod
   return { id, codigoBarras: data.codigoBarras ?? '', nombre: data.nombre ?? 'Producto',
     marca: data.marca ?? 'Sin marca', categoria: data.categoria ?? 'Otros', formato: data.formato ?? '',
     unidad: data.unidad ?? 'unidad', cantidad: Number(data.cantidad) > 0 ? Number(data.cantidad) : 1,
-    vencimiento: data.vencimiento ?? 'Sin fecha', fechaRegistro: data.fechaRegistro ?? '' };
+    vencimiento: data.vencimiento ?? 'Sin fecha', fechaRegistro: data.fechaRegistro ?? '',
+    ...(data.ubicacion ? { ubicacion: data.ubicacion } : {}) };
 }
 /** Consulta por UID y descarta respuestas que llegan tras cambiar de cuenta.
  * Esta versión aún carga el inventario completo: la paginación es un cambio pendiente.
@@ -38,11 +40,18 @@ export async function obtenerInventario(): Promise<ProductoInventario[]> {
 export async function agregarAlInventario(producto: NuevoProductoInventario): Promise<ProductoInventario> {
   const uid = obtenerUidActual();
   const catalogo = validarProducto({ ...producto, formato: producto.formato ?? '', unidad: producto.unidad ?? 'unidad', activo: true });
-  if (!Number.isInteger(producto.cantidad) || producto.cantidad < 1 || producto.cantidad > 999) throw new Error('Cantidad inválida.');
-  const vencimiento = normalizarFechaVencimiento(producto.vencimiento);
+  if (!catalogo.codigoBarras.startsWith('sin:')) {
+    const original = await buscarProductoPorCodigo(catalogo.codigoBarras);
+    if (!original || !mismaIdentidad(catalogo, original)) throw new Error('El producto cambió. Búscalo otra vez antes de guardarlo.');
+  }
+  if (!cantidadValida(producto.cantidad, catalogo.codigoBarras, catalogo.unidad)) throw new Error('Cantidad inválida.');
+  const vencimiento = producto.vencimiento === 'Sin fecha' ? 'Sin fecha' : normalizarFechaVencimiento(producto.vencimiento);
+  const ubicacion = producto.ubicacion ?? 'Despensa';
+  if (!UBICACIONES.includes(ubicacion)) throw new Error('Ubicación inválida.');
   const { activo: _activo, ...campos } = catalogo;
   const fechaRegistro = new Date().toISOString();
-  const datos = { ...campos, cantidad: producto.cantidad, vencimiento, fechaRegistro };
+  const datos = { ...campos, cantidad: producto.cantidad, vencimiento, fechaRegistro, ubicacion };
+  if (usuarioActual()?.uid !== uid) throw new Error('La sesión cambió.');
   const ref = await addDoc(collection(db, 'usuarios', uid, 'inventario'), { ...datos, creadoEn: serverTimestamp() });
   return { ...datos, id: `v5:${ref.id}` };
 }

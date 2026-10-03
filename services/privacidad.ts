@@ -21,13 +21,14 @@ export async function exportarMisDatos(password: string): Promise<void> {
   const user = await reautenticar(password);
   const uid = user.uid;
   try {
-    const [perfil, inventario, historico, catalogo, aviso, tema] = await Promise.all([
+    const [perfil, inventario, historico, catalogo, aviso, tema, reportes] = await Promise.all([
       getDocFromServer(doc(db, 'usuarios', uid)),
       getDocsFromServer(collection(db, 'usuarios', uid, 'inventario')),
       getDocsFromServer(query(collection(db, 'inventario'), where('usuarioId', '==', uid))),
       getDocsFromServer(collection(db, 'usuarios', uid, 'productosPrivados')),
       getDocsFromServer(collection(db, 'usuarios', uid, 'privacidad')),
       AsyncStorage.getItem('@preferencia_tema'),
+      getDocsFromServer(collection(db, 'usuarios', uid, 'reportesCatalogo')),
     ]);
     if (auth.currentUser?.uid !== uid) throw new Error('La sesión cambió.');
     const rows = (snapshot: typeof inventario) => snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -36,7 +37,7 @@ export async function exportarMisDatos(password: string): Promise<void> {
       cuenta: { uid, nombre: user.displayName, email: user.email, emailVerificado: user.emailVerified, creadaEn: user.metadata.creationTime },
       perfilHistorico: perfil.exists() ? perfil.data() : null,
       inventario: rows(inventario), inventarioAnterior: rows(historico), productosPrivados: rows(catalogo),
-      privacidad: rows(aviso), preferenciasDispositivo: { tema: tema ?? 'system' },
+      privacidad: rows(aviso), reportesCatalogo: rows(reportes), preferenciasDispositivo: { tema: tema ?? 'system' },
     };
     await compartirJson(JSON.stringify(serializar(datos), null, 2));
   } catch (e) { throw new Error(mensajeSeguro(e)); }

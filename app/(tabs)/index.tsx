@@ -1,3 +1,4 @@
+import { etiquetaCantidad, resumenCantidades } from '../../security/identidadProducto';
 /** Resume la despensa y destaca vencimientos. Los datos siempre pertenecen al usuario autenticado. */
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
@@ -67,7 +68,7 @@ export default function PantallaInicio() {
   );
 
   const totalUnidades = useMemo(
-    () => inventario.reduce((sum, p) => sum + (p.cantidad || 1), 0),
+    () => resumenCantidades(inventario),
     [inventario]
   );
 
@@ -83,7 +84,7 @@ export default function PantallaInicio() {
         <View style={styles.tarjetaStats}>
           <View>
             <Text style={styles.statsNumero}>{inventario.length}</Text>
-            <Text style={styles.statsTexto}>productos • {totalUnidades} unidades</Text>
+            <Text style={styles.statsTexto}>productos • {totalUnidades}</Text>
           </View>
           <Ionicons name="basket" size={42} color="#E8F5E9" />
         </View>
@@ -100,7 +101,7 @@ export default function PantallaInicio() {
             <View key={prod.id} style={[styles.tarjetaAlerta, { backgroundColor: colorTarjeta, borderLeftColor: esVencido || esUrgente ? '#F44336' : '#FF9800' }]}>
               <View style={styles.alertaInfo}>
                 <Text style={[styles.alertaNombre, { color: colorTexto }]}>{prod.nombre}</Text>
-                <Text style={[styles.alertaFecha, { color: colorSubtexto }]}>x{prod.cantidad || 1} • Vence: {prod.vencimiento}</Text>
+                <Text style={[styles.alertaFecha, { color: colorSubtexto }]}>{etiquetaCantidad(prod)} • Vence: {prod.vencimiento}</Text>
               </View>
               <View style={[styles.badgeDias, { backgroundColor: esVencido || esUrgente ? '#FFEBEE' : '#FFF3E0' }]}>
                 <Text style={[styles.textoBadge, { color: esVencido || esUrgente ? '#C62828' : '#D84315' }]}>{estado.etiqueta}</Text>
@@ -154,3 +155,4 @@ const styles = StyleSheet.create({
   estadoNumero: { fontSize: 24, fontWeight: 'bold', marginTop: 2 },
   estadoLabel: { fontSize: 11, marginTop: 2, textAlign: 'center' },
 });
+

@@ -68,7 +68,8 @@ test('catálogo común solo lectura; alta manual privada aislada', async () => {
   const a = context('A'); const b = context('B');
   await assertSucceeds(getDoc(doc(a, 'productos/7801234567890')));
   await assertFails(setDoc(doc(a, 'productos/7801234567890'), { ...product, nombre: 'ataque' }));
-  await assertSucceeds(setDoc(doc(a, 'usuarios/A/productosPrivados/7801234567890'), product));
+  await assertFails(setDoc(doc(a, 'usuarios/A/productosPrivados/7801234567890'), product));
+  await assertSucceeds(setDoc(doc(a, 'usuarios/A/productosPrivados/88888888'), { ...product, codigoBarras: '88888888' }));
   await assertFails(getDoc(doc(b, 'usuarios/A/productosPrivados/7801234567890')));
   await assertFails(setDoc(doc(a, 'usuarios/A/productosPrivados/88888888'), product));
 });
@@ -115,4 +116,44 @@ test('un lote mixto no borra ni siquiera el dato propio si incluye datos ajenos'
   await assertFails(batch.commit());
   const snap = await assertSucceeds(getDoc(doc(db, 'usuarios/A/inventario/a')));
   if (!snap.exists()) throw new Error('El lote fallido borró datos.');
+});
+
+
+
+test('margarina conocida no se renombra a fideos ni por alta ni por actualización', async () => {
+  const db = context('A');
+  await assertFails(setDoc(doc(db, 'usuarios/A/inventario/falso'), { ...item(), nombre: 'Fideos instantáneos' }));
+  await assertFails(updateDoc(doc(db, 'usuarios/A/inventario/a'), { nombre: 'Fideos instantáneos' }));
+  await assertFails(updateDoc(doc(db, 'usuarios/A/inventario/a'), { codigoBarras: '88888888' }));
+  await assertSucceeds(updateDoc(doc(db, 'usuarios/A/inventario/a'), { ubicacion: 'Refrigerador' }));
+});
+test('producto privado conocido antiguo no reemplaza el catálogo común', async () => {
+  await env.withSecurityRulesDisabled(ctx => setDoc(doc(ctx.firestore(), 'usuarios/A/productosPrivados/7801234567890'), { ...product, nombre: 'Fideos falsos' }));
+  const db = context('A');
+  await assertFails(setDoc(doc(db, 'usuarios/A/inventario/falso'), { ...item(), nombre: 'Fideos falsos' }));
+  await assertSucceeds(setDoc(doc(db, 'usuarios/A/inventario/correcto'), item()));
+});
+test('alta desconocida debe coincidir con registro personal y no puede usar el de otra cuenta', async () => {
+  const db = context('A'); const privado = { ...product, codigoBarras: '88888888', nombre: 'Arroz' };
+  await assertSucceeds(setDoc(doc(db, 'usuarios/A/productosPrivados/88888888'), privado));
+  await assertSucceeds(setDoc(doc(db, 'usuarios/A/inventario/propio'), { ...item(), codigoBarras: '88888888', nombre: 'Arroz' }));
+  await assertFails(setDoc(doc(db, 'usuarios/A/inventario/falso'), { ...item(), codigoBarras: '88888888', nombre: 'Fideos' }));
+  await assertFails(setDoc(doc(context('B'), 'usuarios/B/inventario/falso'), { ...item(), codigoBarras: '88888888', nombre: 'Arroz' }));
+});
+test('sin código acepta tomates por peso y sin fecha; rechaza identidad inventada', async () => {
+  const db = context('A'); const tomate = { ...item(), codigoBarras: 'sin:tomate', nombre: 'Tomate', marca: 'Sin marca', categoria: 'Verduras', formato: 'A granel', unidad: 'kg', cantidad: 1.5, vencimiento: 'Sin fecha', ubicacion: 'Refrigerador' };
+  await assertSucceeds(setDoc(doc(db, 'usuarios/A/inventario/tomate'), tomate));
+  for (const cambio of [{ nombre: 'Fideos' }, { categoria: 'Carnes' }, { codigoBarras: 'sin:inventado' }, { unidad: 'litros' }, { unidad: 'unidad', cantidad: 1.5 }, { ubicacion: 'Inventada' }]) {
+    await assertFails(setDoc(doc(db, 'usuarios/A/inventario/falso'), { ...tomate, ...cambio }));
+  }
+  await assertFails(setDoc(doc(context('B'), 'usuarios/A/inventario/ajeno'), tomate));
+});
+test('reportes son privados, solo de productos del catálogo y no cambian datos comunes', async () => {
+  const db = context('A'); const ref = doc(db, 'usuarios/A/reportesCatalogo/7801234567890');
+  const reporte = { codigoBarras: '7801234567890', detalle: 'La marca del envase es distinta', creadoEn: serverTimestamp() };
+  await assertSucceeds(setDoc(ref, reporte));
+  await assertSucceeds(getDoc(ref));
+  await assertFails(getDoc(doc(context('B'), 'usuarios/A/reportesCatalogo/7801234567890')));
+  await assertFails(setDoc(ref, { ...reporte, aprobado: true }));
+  await assertFails(setDoc(doc(db, 'usuarios/A/reportesCatalogo/88888888'), { ...reporte, codigoBarras: '88888888' }));
 });

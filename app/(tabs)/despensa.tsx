@@ -2,7 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
+import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, TextInput, useColorScheme, View } from 'react-native';
 import {
   eliminarProductoInventario,
   obtenerEstadoVencimiento,
@@ -10,6 +10,8 @@ import {
   ordenarPorVencimiento,
 } from '../../services/inventarioFirestore';
 import { ProductoInventario } from '../../services/productos';
+
+import { etiquetaCantidad, resumenCantidades, normalizarBusqueda, UBICACIONES } from '../../security/identidadProducto';
 
 const COLORES_ESTADO = {
   vencido: { fondo: '#FFEBEE', texto: '#C62828', borde: '#E53935' },
@@ -22,6 +24,9 @@ const COLORES_ESTADO = {
 
 export default function PantallaDespensa() {
   const [inventario, setInventario] = useState<ProductoInventario[]>([]);
+  const [busqueda, setBusqueda] = useState('');
+  const [ubicacion, setUbicacion] = useState('Todos');
+  const filtrado = inventario.filter(p => normalizarBusqueda(p.nombre + ' ' + p.marca).includes(normalizarBusqueda(busqueda)) && (ubicacion === 'Todos' || (p.ubicacion ?? 'Sin ubicación') === ubicacion));
   const isDark = useColorScheme() === 'dark';
   const colorFondo = isDark ? '#000' : '#F2F2F7';
   const colorTarjeta = isDark ? '#1C1C1E' : '#FFF';
@@ -42,7 +47,7 @@ export default function PantallaDespensa() {
   useFocusEffect(useCallback(() => { cargar(); }, [cargar]));
 
   const totalUnidades = useMemo(
-    () => inventario.reduce((total, item) => total + (item.cantidad || 1), 0),
+    () => resumenCantidades(inventario),
     [inventario]
   );
 
@@ -69,18 +74,27 @@ export default function PantallaDespensa() {
     <View style={[styles.fondo, { backgroundColor: colorFondo }]}>
       <View style={styles.cabecera}>
         <Text style={[styles.titulo, { color: colorTexto }]}>Mi Despensa</Text>
-        <Text style={{ color: colorSubtexto }}>{inventario.length} productos • {totalUnidades} unidades</Text>
+        <Text style={{ color: colorSubtexto }}>{inventario.length} productos • {totalUnidades}</Text>
       </View>
 
+      <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
+        <TextInput accessibilityLabel="Buscar en mi despensa" placeholder="Buscar alimento o marca" placeholderTextColor={colorSubtexto}
+          value={busqueda} onChangeText={setBusqueda} style={{ color: colorTexto, borderColor: colorBorde, borderWidth: 1, borderRadius: 12, padding: 12, minHeight: 48 }} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+          {['Todos', ...UBICACIONES, 'Sin ubicación'].map(u => <TouchableOpacity key={u} accessibilityRole="button" accessibilityState={{ selected: ubicacion === u }} onPress={() => setUbicacion(u)}
+            style={{ backgroundColor: ubicacion === u ? '#236640' : colorTarjeta, padding: 12, borderRadius: 22, minHeight: 44 }}>
+            <Text style={{ color: ubicacion === u ? '#FFF' : colorTexto }}>{u}</Text></TouchableOpacity>)}
+        </View>
+      </View>
       <FlatList
-        data={inventario}
+        data={filtrado}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.lista}
         ListEmptyComponent={
           <View style={styles.vacioContainer}>
             <Ionicons name="basket-outline" size={60} color={colorSubtexto} />
-            <Text style={[styles.textoVacio, { color: colorSubtexto }]}>Tu despensa está vacía.</Text>
-            <Text style={[styles.textoVacioSecundario, { color: colorSubtexto }]}>Escanea un producto para comenzar.</Text>
+            <Text style={[styles.textoVacio, { color: colorSubtexto }]}>{inventario.length ? 'No hay coincidencias.' : 'Tu despensa está vacía.'}</Text>
+            <Text style={[styles.textoVacioSecundario, { color: colorSubtexto }]}>{inventario.length ? 'Prueba otro nombre o filtro.' : 'Agrega un alimento para comenzar.'}</Text>
           </View>
         }
         renderItem={({ item }) => {
@@ -93,11 +107,11 @@ export default function PantallaDespensa() {
                 <View style={styles.filaTitulo}>
                   <Text style={[styles.nombre, { color: colorTexto }]} numberOfLines={1}>{item.nombre}</Text>
                   <View style={[styles.badgeCantidad, { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' }]}>
-                    <Text style={[styles.textoCantidad, { color: colorTexto }]}>x{item.cantidad || 1}</Text>
+                    <Text style={[styles.textoCantidad, { color: colorTexto }]}>{etiquetaCantidad(item)}</Text>
                   </View>
                 </View>
 
-                <Text style={[styles.marca, { color: colorSubtexto }]}>{item.marca} • {item.categoria}</Text>
+                <Text style={[styles.marca, { color: colorSubtexto }]}>{item.marca} • {item.categoria} • {item.ubicacion ?? 'Sin ubicación'}</Text>
                 {!!item.formato && <Text style={[styles.formato, { color: colorSubtexto }]}>{item.formato}</Text>}
 
                 <View style={[styles.etiquetaFecha, { backgroundColor: colores.fondo }]}>
@@ -105,7 +119,7 @@ export default function PantallaDespensa() {
                   <Text style={[styles.textoFecha, { color: colores.texto }]}> {estado.etiqueta} • {item.vencimiento}</Text>
                 </View>
 
-                {(estado.estado === 'urgente' || estado.estado === 'vencido') && (
+                {estado.estado === 'urgente' && (
                   <Text style={styles.consumirPrimero}>⚡ Consumir primero</Text>
                 )}
               </View>
@@ -142,3 +156,4 @@ const styles = StyleSheet.create({
   textoVacio: { fontSize: 17, marginTop: 15, fontWeight: '600' },
   textoVacioSecundario: { fontSize: 14, marginTop: 5 },
 });
+
