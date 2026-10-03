@@ -1,3 +1,4 @@
+import { etiquetaCantidad } from '../../security/identidadProducto';
 /** Cronograma de vencimientos. Pendiente: virtualizar esta vista y paginar su carga. */
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
@@ -74,7 +75,7 @@ export default function PantallaCalendario() {
                   <Text style={[styles.estado, { color }]}>{estado.etiqueta}</Text>
                 </View>
                 <Text style={[styles.nombre, { color: colorTexto }]}>{item.nombre}</Text>
-                <Text style={[styles.detalle, { color: colorSubtexto }]}>{item.marca} • x{item.cantidad || 1} • {item.categoria}</Text>
+                <Text style={[styles.detalle, { color: colorSubtexto }]}>{item.marca} • {etiquetaCantidad(item)} • {item.categoria}</Text>
               </View>
             </View>
           );
@@ -102,3 +103,4 @@ const styles = StyleSheet.create({
   vacioContainer: { alignItems: 'center', marginTop: 70 },
   textoVacio: { textAlign: 'center', marginTop: 12, fontSize: 16 },
 });
+

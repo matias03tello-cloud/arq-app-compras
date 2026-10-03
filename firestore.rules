@@ -9,16 +9,72 @@ service cloud.firestore {
     function text(value, min, max) {
       return value is string && value.size() >= min && value.size() <= max;
     }
+    // Dataset propio: mantener junto con security/identidadProducto.ts.
+    function generic(d) {
+      let foods = {
+        'sin:manzana': ['Manzana', 'Frutas'],
+        'sin:platano': ['Plátano', 'Frutas'],
+        'sin:naranja': ['Naranja', 'Frutas'],
+        'sin:mandarina': ['Mandarina', 'Frutas'],
+        'sin:limon': ['Limón', 'Frutas'],
+        'sin:pera': ['Pera', 'Frutas'],
+        'sin:durazno': ['Durazno', 'Frutas'],
+        'sin:ciruela': ['Ciruela', 'Frutas'],
+        'sin:frutilla': ['Frutilla', 'Frutas'],
+        'sin:uva': ['Uva', 'Frutas'],
+        'sin:kiwi': ['Kiwi', 'Frutas'],
+        'sin:sandia': ['Sandía', 'Frutas'],
+        'sin:melon': ['Melón', 'Frutas'],
+        'sin:pina': ['Piña', 'Frutas'],
+        'sin:arandano': ['Arándano', 'Frutas'],
+        'sin:palta': ['Palta', 'Frutas'],
+        'sin:tomate': ['Tomate', 'Verduras'],
+        'sin:papa': ['Papa', 'Verduras'],
+        'sin:cebolla': ['Cebolla', 'Verduras'],
+        'sin:zanahoria': ['Zanahoria', 'Verduras'],
+        'sin:lechuga': ['Lechuga', 'Verduras'],
+        'sin:pepino': ['Pepino', 'Verduras'],
+        'sin:zapallo': ['Zapallo', 'Verduras'],
+        'sin:zapallo-italiano': ['Zapallo italiano', 'Verduras'],
+        'sin:brocoli': ['Brócoli', 'Verduras'],
+        'sin:coliflor': ['Coliflor', 'Verduras'],
+        'sin:espinaca': ['Espinaca', 'Verduras'],
+        'sin:acelga': ['Acelga', 'Verduras'],
+        'sin:pimenton': ['Pimentón', 'Verduras'],
+        'sin:ajo': ['Ajo', 'Verduras'],
+        'sin:apio': ['Apio', 'Verduras'],
+        'sin:repollo': ['Repollo', 'Verduras']
+      };
+      return d.codigoBarras in foods && d.nombre == foods[d.codigoBarras][0]
+        && d.categoria == foods[d.codigoBarras][1] && d.marca == 'Sin marca'
+        && d.formato == 'A granel' && d.unidad in ['unidad','kg','g'];
+    }
+    function sameIdentity(a, b) {
+      return a.codigoBarras == b.codigoBarras && a.nombre == b.nombre && a.marca == b.marca
+        && a.categoria == b.categoria && a.formato == b.formato && a.unidad == b.unidad;
+    }
+    function barcodeIdentity(d, uid) {
+      let common = /databases/$(database)/documents/productos/$(d.codigoBarras);
+      let personal = /databases/$(database)/documents/usuarios/$(uid)/productosPrivados/$(d.codigoBarras);
+      return exists(common)
+        ? get(common).data.activo == true && sameIdentity(d, get(common).data)
+        : existsAfter(personal) && getAfter(personal).data.activo == true && sameIdentity(d, getAfter(personal).data);
+    }
+    function validIdentity(d, uid) {
+      return d.codigoBarras.matches('^sin:.*$') ? generic(d) : barcodeIdentity(d, uid);
+    }
     function product(d) {
-      return d.codigoBarras is string && d.codigoBarras.matches('^[0-9]{8,14}$')
+      return d.codigoBarras is string && (d.codigoBarras.matches('^[0-9]{8,14}$') || generic(d))
         && text(d.nombre, 1, 120) && text(d.marca, 1, 80)
         && d.categoria in ['Lacteos','Carnes','Frutas','Verduras','Despensa','Bebidas','Congelados','Snacks','Otros']
         && text(d.formato, 0, 80) && text(d.unidad, 1, 30);
     }
     function inventory(d) {
       return d.keys().hasAll(['codigoBarras','nombre','marca','categoria','formato','unidad','cantidad','vencimiento','fechaRegistro','creadoEn'])
-        && d.keys().hasOnly(['codigoBarras','nombre','marca','categoria','formato','unidad','cantidad','vencimiento','fechaRegistro','creadoEn'])
-        && product(d) && d.cantidad is int && d.cantidad >= 1 && d.cantidad <= 999
+        && d.keys().hasOnly(['codigoBarras','nombre','marca','categoria','formato','unidad','cantidad','vencimiento','fechaRegistro','creadoEn','ubicacion'])
+        && product(d) && d.cantidad is number && d.cantidad > 0 && d.cantidad <= 999
+        && ((d.cantidad is int) || (generic(d) && d.unidad in ['kg','g']))
+        && d.get('ubicacion', 'Despensa') in ['Despensa','Refrigerador','Congelador']
         && d.vencimiento is string
         && (d.vencimiento == 'Sin fecha' || d.vencimiento.matches('^([0-9]{2}/)?[0-9]{2}/[0-9]{4}$'))
         && text(d.fechaRegistro, 1, 30) && d.creadoEn is timestamp;
@@ -36,14 +92,31 @@ service cloud.firestore {
       match /inventario/{id} {
         allow read, delete: if owner(uid);
         allow create: if owner(uid) && inventory(request.resource.data)
-          && request.resource.data.creadoEn == request.time;
+          && request.resource.data.creadoEn == request.time
+          && validIdentity(request.resource.data, uid);
         allow update: if owner(uid) && inventory(request.resource.data)
-          && request.resource.data.creadoEn == resource.data.creadoEn;
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cantidad','vencimiento','ubicacion']);
       }
       match /productosPrivados/{codigo} {
         allow read, delete: if owner(uid);
         allow create, update: if owner(uid) && catalog(request.resource.data)
-          && request.resource.data.codigoBarras == codigo;
+          && request.resource.data.codigoBarras == codigo
+          && codigo.matches('^[0-9]{8,14}$')
+          && !exists(/databases/$(database)/documents/productos/$(codigo))
+          && text(request.resource.data.nombre, 2, 120)
+          && !request.resource.data.nombre.matches('.*[<>@].*')
+          && !request.resource.data.nombre.matches('.*[hH][tT][tT][pP][sS]?://.*')
+          && !request.resource.data.nombre.matches('.*[wW][wW][wW]\\..*');
+      }
+      match /reportesCatalogo/{codigo} {
+        allow read, delete: if owner(uid);
+        allow create, update: if owner(uid)
+          && exists(/databases/$(database)/documents/productos/$(codigo))
+          && request.resource.data.keys().hasAll(['codigoBarras','detalle','creadoEn'])
+          && request.resource.data.keys().hasOnly(['codigoBarras','detalle','creadoEn'])
+          && request.resource.data.codigoBarras == codigo
+          && text(request.resource.data.detalle, 5, 300)
+          && request.resource.data.creadoEn == request.time;
       }
       match /privacidad/{id} {
         allow read: if owner(uid);
@@ -74,3 +147,4 @@ service cloud.firestore {
     match /{document=**} { allow read, write: if false; }
   }
 }
+

@@ -1,472 +1,354 @@
-/** Flujo de código de barras, alta manual y OCR local con confirmación de la fecha. */
+/** Ingreso protegido, código manual y dataset propio de alimentos sin código. */
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system/legacy';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import { useIsFocused } from 'expo-router';
-import { useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Dimensions,
-  Platform,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  useColorScheme,
-  View,
-} from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { ActivityIndicator, AppState, Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useColorScheme, View } from 'react-native';
 import { agregarAlInventario, fechaTextoADate } from '../../services/inventarioFirestore';
-import {
-  buscarProductoPorCodigo,
-  CategoriaProducto,
-  guardarProductoCatalogo,
-  ProductoCatalogo,
-  ProductoInventario,
-  NuevoProductoInventario,
-} from '../../services/productos';
+import { buscarProductoPorCodigo, guardarProductoCatalogo, reportarErrorProducto } from '../../services/productos';
+import type { CategoriaProducto, ProductoCatalogo, ProductoInventario } from '../../services/productos';
+import { CATEGORIAS, codigoValido } from '../../security/validation';
+import { accionPermisoCamara, crearControlCamara, motivoCamaraWeb } from '../../security/camara';
+import { ejecutarOCRLocal } from '../../services/ocrLocal';
+import { extraerFechasOCR } from '../../services/fechas';
+import { ALIMENTOS_SIN_CODIGO, UBICACIONES, UNIDADES_GRANEL, alimentoGenerico, cantidadValida, validarNombreManual, normalizarBusqueda } from '../../security/identidadProducto';
 
-import { CATEGORIAS } from '../../security/validation';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
-type PasoFlujo = 'INICIAL' | 'REGISTRO_MANUAL' | 'FOTO_FECHA' | 'EXITO';
-
-// Extrae candidatos del OCR; la validación de calendario está centralizada en fechas.ts.
-function normalizarFecha(textoOCR: string): string | null {
-  if (!textoOCR) return null;
-
-  let texto = textoOCR.toUpperCase();
-  texto = texto
-    .replace(/\bO(?=\d)/g, '0')
-    .replace(/(?<=\d)O\b/g, '0')
-    .replace(/[.\s-]+/g, '/');
-
-  const patronCompleto = /\b(0?[1-9]|[12]\d|3[01])\/(0?[1-9]|1[0-2])\/(20\d{2}|\d{2})\b/g;
-  const completa = patronCompleto.exec(texto);
-
-  if (completa) {
-    const dia = completa[1].padStart(2, '0');
-    const mes = completa[2].padStart(2, '0');
-    let anio = completa[3];
-    if (anio.length === 2) anio = `20${anio}`;
-    const fecha = `${dia}/${mes}/${anio}`;
-    if (fechaTextoADate(fecha)) return fecha;
-  }
-
-  const patronMesAnio = /\b(0?[1-9]|1[0-2])\/(20\d{2}|\d{2})\b/g;
-  const mesAnio = patronMesAnio.exec(texto);
-
-  if (mesAnio) {
-    const mes = mesAnio[1].padStart(2, '0');
-    let anio = mesAnio[2];
-    if (anio.length === 2) anio = `20${anio}`;
-    const fecha = `${mes}/${anio}`;
-    if (fechaTextoADate(fecha)) return fecha;
-  }
-
-  return null;
+function Boton({ titulo, onPress, secundario, ocupado, colores }: {
+  titulo: string; onPress: () => void; secundario: boolean; ocupado: boolean;
+  colores: { tarjeta: string; borde: string; texto: string };
+}) {
+  return <TouchableOpacity accessibilityRole="button" accessibilityState={{ disabled: ocupado }} disabled={ocupado}
+    style={[styles.boton, secundario ? { backgroundColor: colores.tarjeta, borderColor: colores.borde } : styles.primario, ocupado && { opacity: 0.5 }]}
+    onPress={onPress}><Text style={[styles.botonTexto, { color: secundario ? colores.texto : '#FFFFFF' }]}>{titulo}</Text></TouchableOpacity>;
 }
 
-function formatearFechaManual(texto: string): string {
-  const limpio = texto.replace(/[^0-9]/g, '').slice(0, 8);
-  if (limpio.length <= 2) return limpio;
-  if (limpio.length <= 4) return `${limpio.slice(0, 2)}/${limpio.slice(2)}`;
-  return `${limpio.slice(0, 2)}/${limpio.slice(2, 4)}/${limpio.slice(4)}`;
+type Paso = 'inicio' | 'escaner' | 'codigo' | 'manual' | 'genericos' | 'detalle' | 'exito';
+function mensajeError(error: unknown): string {
+  if (error && typeof error === 'object' && 'code' in error) return 'No se pudo completar la operación. Revisa la conexión, tu sesión y que las reglas de Firebase estén actualizadas.';
+  return error instanceof Error ? error.message : 'No se pudo completar la operación. Intenta otra vez.';
 }
 
 export default function PantallaCamara() {
-  const isFocused = useIsFocused();
-  const [permiso, pedirPermiso] = useCameraPermissions();
-  const [paso, setPaso] = useState<PasoFlujo>('INICIAL');
-  const [procesando, setProcesando] = useState(false);
-  const [flashEncendido, setFlashEncendido] = useState(false);
-  const [codigoLeido, setCodigoLeido] = useState<string | null>(null);
-  const [productoActual, setProductoActual] = useState<ProductoCatalogo | null>(null);
-  const [ultimoResultado, setUltimoResultado] = useState<ProductoInventario | null>(null);
-
+  const [permiso, pedirPermiso, consultarPermiso] = useCameraPermissions();
+  const [paso, setPaso] = useState<Paso>('inicio');
+  const [producto, setProducto] = useState<ProductoCatalogo | null>(null);
+  const [resultado, setResultado] = useState<ProductoInventario | null>(null);
+  const [codigo, setCodigo] = useState('');
   const [nombre, setNombre] = useState('');
   const [marca, setMarca] = useState('');
-  const [categoria, setCategoria] = useState<CategoriaProducto>('Otros');
   const [formato, setFormato] = useState('');
-  const [unidad, setUnidad] = useState('unidad');
-
-  const [fechaManual, setFechaManual] = useState('');
-  const [cantidadTexto, setCantidadTexto] = useState('1');
-
-  const cameraRef = useRef<any>(null);
+  const [categoria, setCategoria] = useState<CategoriaProducto | null>(null);
+  const [busqueda, setBusqueda] = useState('');
+  const [cantidad, setCantidad] = useState('1');
+  const [fecha, setFecha] = useState('');
+  const [sinFecha, setSinFecha] = useState(false);
+  const [ubicacion, setUbicacion] = useState<typeof UBICACIONES[number]>('Despensa');
+  const [ocupado, setOcupado] = useState(false);
+  const [mensaje, setMensaje] = useState('');
+  const [error, setError] = useState('');
+  const [verCamaraFecha, setVerCamaraFecha] = useState(false);
+  const [reporte, setReporte] = useState<string | null>(null);
+  const [flash, setFlash] = useState(false);
+  const [enFoco, setEnFoco] = useState(false);
+  const [estadoApp, setEstadoApp] = useState(AppState.currentState);
+  const [revisandoPermiso, setRevisandoPermiso] = useState(false);
+  const [solicitandoPermiso, setSolicitandoPermiso] = useState(false);
+  const [errorPermiso, setErrorPermiso] = useState('');
+  const [errorCamara, setErrorCamara] = useState('');
+  const [escaneoArmado, setEscaneoArmado] = useState(true);
+  const [candidatasFecha, setCandidatasFecha] = useState<string[]>([]);
+  const [controlCamara] = useState(crearControlCamara);
+  const { id: sesionCamara, lista: camaraLista } = useSyncExternalStore(controlCamara.suscribir, controlCamara.estado, controlCamara.estado);
+  const camara = useRef<CameraView>(null);
+  const operacion = useRef(0);
   const bloqueado = useRef(false);
+  const oscuro = useColorScheme() === 'dark';
+  const colores = oscuro ? { fondo: '#111915', tarjeta: '#1D2922', texto: '#F3F7F4', secundario: '#BCCCBF', borde: '#52675A' }
+    : { fondo: '#F4F7F3', tarjeta: '#FFFFFF', texto: '#183628', secundario: '#526459', borde: '#B8C8BC' };
 
-  const isDark = useColorScheme() === 'dark';
-  const colorFondo = isDark ? '#000' : '#F4F6F8';
-  const colorTarjeta = isDark ? '#1C1C1E' : '#FFF';
-  const colorTexto = isDark ? '#FFF' : '#222';
-  const colorSubtexto = isDark ? '#A0A0A5' : '#666';
+  useFocusEffect(useCallback(() => {
+    setEnFoco(true);
+    return () => { controlCamara.cerrar(); operacion.current++; bloqueado.current = false; setOcupado(false); setEnFoco(false); setFlash(false); };
+  }, [controlCamara]));
 
-  const manejarCodigoEscaneado = async ({ data }: { data: string }) => {
-    if (!isFocused || bloqueado.current || procesando || paso !== 'INICIAL') return;
+  const refrescarPermiso = useCallback(async () => {
+    setRevisandoPermiso(true); setErrorPermiso('');
+    try { await consultarPermiso(); }
+    catch { setErrorPermiso('No se pudo consultar el permiso. Puedes continuar con el ingreso manual.'); }
+    finally { setRevisandoPermiso(false); }
+  }, [consultarPermiso]);
 
-    bloqueado.current = true;
-    setProcesando(true);
-    setCodigoLeido(data);
-
-    try {
-      const producto = await buscarProductoPorCodigo(data);
-
-      if (producto) {
-        setProductoActual(producto);
-        setPaso('FOTO_FECHA');
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', estado => {
+      setEstadoApp(estado);
+      if (estado !== 'active') {
+        controlCamara.cerrar(); setFlash(false);
       } else {
-        setNombre('');
-        setMarca('');
-        setCategoria('Otros');
-        setFormato('');
-        setUnidad('unidad');
-        setPaso('REGISTRO_MANUAL');
+        // Al volver de Ajustes se verifica si el permiso cambió antes de reabrir la cámara.
+        void refrescarPermiso();
       }
-    } catch {
-      
-      Alert.alert('Error', 'No se pudo consultar tu catálogo de Firestore.');
-      bloqueado.current = false;
-      setCodigoLeido(null);
-    } finally {
-      setProcesando(false);
-    }
-  };
+    });
+    return () => sub.remove();
+  }, [controlCamara, refrescarPermiso]);
 
-  const registrarProductoNuevo = async () => {
-    if (procesando) return;
-    if (!codigoLeido) return;
-    if (!nombre.trim()) {
-      Alert.alert('Falta información', 'Debes escribir el nombre del producto.');
-      return;
-    }
+  const bloqueoWeb = Platform.OS === 'web' ? motivoCamaraWeb({
+    contextoSeguro: typeof window !== 'undefined' && window.isSecureContext,
+    capturaDisponible: typeof navigator !== 'undefined' && typeof navigator.mediaDevices?.getUserMedia === 'function',
+    // Impide ejecutar la alternativa de expo-camera que descarga WASM desde un CDN.
+    lectorIntegrado: typeof (globalThis as { BarcodeDetector?: unknown }).BarcodeDetector === 'function',
+  }) : null;
+  const mostrarVisor = paso === 'escaner' || (paso === 'detalle' && verCamaraFecha);
+  const habilitarCamara = enFoco && estadoApp === 'active' && permiso?.granted === true
+    && mostrarVisor && !revisandoPermiso && !errorPermiso && !errorCamara && !bloqueoWeb;
 
-    const nuevoProducto: ProductoCatalogo = {
-      codigoBarras: codigoLeido,
-      nombre: nombre.trim(),
-      marca: marca.trim() || 'Sin marca',
-      categoria,
-      formato: formato.trim() || 'Sin formato',
-      unidad: unidad.trim() || 'unidad',
-      activo: true,
-    };
+  useEffect(() => {
+    if (!habilitarCamara) { controlCamara.cerrar(); return; }
+    controlCamara.abrir();
+    return () => controlCamara.cerrar();
+  }, [habilitarCamara, controlCamara]);
 
+  const gestionarPermiso = async () => {
+    if (solicitandoPermiso) return;
+    setSolicitandoPermiso(true); setErrorPermiso('');
     try {
-      setProcesando(true);
-      await guardarProductoCatalogo(nuevoProducto);
-      setProductoActual(nuevoProducto);
-      setPaso('FOTO_FECHA');
-    } catch {
-      
-      Alert.alert('Error', 'No se pudo guardar el producto en Firestore.');
-    } finally {
-      setProcesando(false);
-    }
-  };
-
-  // Reduce el tamaño de la imagen para OCR y elimina el original temporal.
-  const tomarFoto = async () => {
-    if (!cameraRef.current) return null;
-
-    const foto = await cameraRef.current.takePictureAsync({ quality: 0.8, skipProcessing: false });
-    if (!foto?.uri) return null;
-
-    try {
-      return await manipulateAsync(foto.uri, [{ resize: { width: 1200 } }], { compress: 0.8, format: SaveFormat.JPEG });
-    } finally {
-      await FileSystem.deleteAsync(foto.uri, { idempotent: true });
-    }
-  };
-
-  const leerFechaConMLKit = async () => {
-    if (!productoActual || procesando) return;
-    if (Platform.OS === 'web') {
-      Alert.alert('Lectura de fecha', 'En el navegador, escribe la fecha manualmente.');
-      return;
-    }
-    let uri: string | undefined;
-    try {
-      setProcesando(true);
-      // La carga diferida permite abrir las demás funciones también en Expo Go.
-      const TextRecognition = (await import('@react-native-ml-kit/text-recognition')).default;
-      const foto = await tomarFoto();
-      uri = foto?.uri;
-      if (!uri) throw new Error('No se pudo capturar la imagen.');
-      const resultado = await TextRecognition.recognize(uri);
-      const fecha = normalizarFecha(resultado.text);
-      if (!fecha) {
-        Alert.alert('Fecha no detectada', 'Puedes volver a intentar o escribirla manualmente abajo.');
-        return;
+      if (accionPermisoCamara(permiso) === 'ajustes') {
+        if (Platform.OS === 'web') setErrorPermiso('Habilita la cámara en los permisos de este sitio y vuelve a comprobar el permiso.');
+        else await Linking.openSettings();
+      } else {
+        const respuesta = await pedirPermiso();
+        if (!respuesta.granted) setMensaje('Puedes seguir usando el ingreso manual sin permitir la cámara.');
       }
-      setFechaManual(fecha);
-      Alert.alert('Fecha detectada', fecha);
-    } catch {
-      Alert.alert('No se pudo leer la fecha', 'Puedes escribirla manualmente. La lectura automática necesita la versión instalada con los módulos nativos.');
-    } finally {
-      try { if (uri) await FileSystem.deleteAsync(uri, { idempotent: true }); }
-      finally { setProcesando(false); }
-    }
+    } catch { setErrorPermiso('No se pudo abrir el permiso. Puedes habilitar la cámara en Ajustes o continuar manualmente.'); }
+    finally { setSolicitandoPermiso(false); }
   };
 
-  // Envía datos del producto; el servicio asigna ID y fecha de registro reales.
-  const guardarProductoEnDespensa = async () => {
-    if (procesando) return;
-    if (!productoActual) return;
 
-    const cantidad = Number(cantidadTexto);
-    if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 999) {
-      Alert.alert('Cantidad inválida', 'Ingresa una cantidad entre 1 y 999.');
-      return;
+  const ejecutar = async (trabajo: (vigente: () => boolean) => Promise<void>) => {
+    if (bloqueado.current) return;
+    bloqueado.current = true; setOcupado(true); setError(''); setMensaje('');
+    const id = ++operacion.current;
+    const vigente = () => id === operacion.current;
+    try { await trabajo(vigente); }
+    catch (e) { if (vigente()) setError(mensajeError(e)); }
+    finally { if (vigente()) { bloqueado.current = false; setOcupado(false); } }
+  };
+
+  const volverInicio = () => {
+    if (bloqueado.current) return;
+    setPaso('inicio'); setProducto(null); setResultado(null); setCodigo('');
+    setNombre(''); setMarca(''); setFormato(''); setCategoria(null); setBusqueda('');
+    setCantidad('1'); setFecha(''); setSinFecha(false); setReporte(null);
+    setUbicacion('Despensa'); setVerCamaraFecha(false); setError(''); setMensaje(''); setFlash(false);
+    setErrorCamara(''); setEscaneoArmado(true); setCandidatasFecha([]); controlCamara.cerrar();
+  };
+  const elegir = (p: ProductoCatalogo) => {
+    setProducto(p); setPaso('detalle'); setCantidad('1'); setFecha(''); setCandidatasFecha([]); setFlash(false); controlCamara.cerrar();
+    setSinFecha(p.origen === 'generico'); setReporte(null); setVerCamaraFecha(false);
+    setUbicacion(p.origen === 'generico' ? 'Refrigerador' : 'Despensa');
+  };
+  const buscarCodigo = (valor: string) => ejecutar(async vigente => {
+    const limpio = codigoValido(valor.trim());
+    const encontrado = await buscarProductoPorCodigo(limpio);
+    if (!vigente()) return;
+    setCodigo(limpio);
+    if (encontrado) elegir(encontrado);
+    else { setNombre(''); setMarca(''); setFormato(''); setCategoria(null); setPaso('manual'); }
+  });
+  const guardarManual = () => ejecutar(async vigente => {
+    if (!categoria) throw new Error('Selecciona la categoría del alimento.');
+    const nuevo: ProductoCatalogo = { codigoBarras: codigo, nombre: validarNombreManual(nombre),
+      marca: marca.trim() || 'Sin marca', categoria, formato: formato.trim() || 'Formato no informado', unidad: 'unidad', activo: true };
+    await guardarProductoCatalogo(nuevo);
+    if (vigente()) elegir({ ...nuevo, origen: 'personal' });
+  });
+  const guardar = () => ejecutar(async vigente => {
+    if (!producto) return;
+    const numero = Number(cantidad.replace(',', '.'));
+    if (!/^\d+(?:[.,]\d{1,3})?$/.test(cantidad) || !cantidadValida(numero, producto.codigoBarras, producto.unidad)) {
+      throw new Error(producto.origen === 'generico' && producto.unidad !== 'unidad'
+        ? 'Ingresa una cantidad mayor que 0 y hasta 999, con un máximo de 3 decimales.' : 'Ingresa una cantidad entera entre 1 y 999.');
     }
-
-    const fecha = fechaManual.trim();
-    if (!fechaTextoADate(fecha)) {
-      Alert.alert('Fecha inválida', 'Usa DD/MM/AAAA. Ejemplo: 25/09/2026.');
-      return;
-    }
-
-    const nuevoProducto: NuevoProductoInventario = {
-      codigoBarras: productoActual.codigoBarras,
-      nombre: productoActual.nombre,
-      marca: productoActual.marca,
-      categoria: productoActual.categoria,
-      formato: productoActual.formato,
-      unidad: productoActual.unidad,
-      cantidad,
-      vencimiento: fecha,
-    };
-
+    if (!sinFecha && !fechaTextoADate(fecha)) throw new Error('Revisa la fecha. Usa DD/MM/AAAA o MM/AAAA.');
+    const nuevo = await agregarAlInventario({ codigoBarras: producto.codigoBarras, nombre: producto.nombre,
+      marca: producto.marca, categoria: producto.categoria, formato: producto.formato, unidad: producto.unidad,
+      cantidad: numero, vencimiento: sinFecha ? 'Sin fecha' : fecha, ubicacion });
+    if (vigente()) { setResultado(nuevo); setPaso('exito'); setVerCamaraFecha(false); }
+  });
+  const leerFecha = () => ejecutar(async vigente => {
+    if (Platform.OS === 'web') throw new Error('Escribe la fecha del envase en el navegador.');
+    const sesion = controlCamara.iniciar();
+    const valida = () => vigente() && controlCamara.vigente(sesion);
+    const vista = camara.current;
+    if (!vista) throw new Error('Activa la cámara para leer la fecha.');
+    let reconocer: (uri: string) => Promise<{ text: string }>;
     try {
-      setProcesando(true);
-      const productoGuardado = await agregarAlInventario(nuevoProducto);
-      setUltimoResultado(productoGuardado);
-      setPaso('EXITO');
+      const modulo = (await import('@react-native-ml-kit/text-recognition')).default;
+      reconocer = uri => modulo.recognize(uri);
     } catch {
-      
-      Alert.alert('Error', 'No se pudo guardar el producto en la despensa.');
-    } finally {
-      setProcesando(false);
+      throw new Error('La lectura de fecha necesita la versión instalada de FrescApp con OCR. Mientras tanto, escribe la fecha.');
     }
-  };
+    if (!valida()) return;
+    const lectura = await ejecutarOCRLocal({
+      vigente: valida,
+      capturar: async () => (await vista.takePictureAsync({ quality: 0.8 }))?.uri,
+      reducir: async uri => (await manipulateAsync(uri, [{ resize: { width: 1200 } }], { compress: 0.8, format: SaveFormat.JPEG })).uri,
+      reconocer: async uri => (await reconocer(uri)).text,
+      eliminar: uri => FileSystem.deleteAsync(uri, { idempotent: true }),
+    }).catch(() => { throw new Error('No se pudo leer la foto en el dispositivo. Vuelve a intentar o escribe la fecha.'); });
+    if (!lectura || !valida()) return;
+    const fechas = extraerFechasOCR(lectura.texto);
+    if (!fechas.length) throw new Error('No encontramos una fecha válida. Acerca el envase, mejora la luz o escríbela manualmente.');
+    setCandidatasFecha(fechas); setSinFecha(false); setVerCamaraFecha(false); setFlash(false);
+    // Con varias fechas no se elige entre elaboración y vencimiento por su posición en la foto.
+    setFecha(fechas.length === 1 ? fechas[0] : '');
+    setMensaje((fechas.length === 1 ? 'Compara la fecha detectada con el vencimiento del envase.'
+      : 'Encontramos varias fechas. Selecciona la que el envase indica como vencimiento.')
+      + (lectura.limpiezaPendiente ? ' No se pudo borrar alguna copia temporal de la foto.' : ''));
+  });
 
-  const reiniciar = () => {
-    setPaso('INICIAL');
-    setProcesando(false);
-    setCodigoLeido(null);
-    setProductoActual(null);
-    setUltimoResultado(null);
-    setNombre('');
-    setMarca('');
-    setCategoria('Otros');
-    setFormato('');
-    setUnidad('unidad');
-    setFechaManual('');
-    setCantidadTexto('1');
-    bloqueado.current = false;
-  };
-
-  if (!permiso) {
-    return (
-      <View style={[styles.center, { backgroundColor: colorFondo }]}>
-        <ActivityIndicator size="large" color="#2E7D32" />
-      </View>
-    );
-  }
-
-  if (!permiso.granted) {
-    return (
-      <View style={[styles.center, { backgroundColor: colorFondo }]}>
-        <Text style={[styles.textoPermiso, { color: colorTexto }]}>FrescApp necesita acceso a la cámara.</Text>
-        <TouchableOpacity style={styles.botonPrincipal} onPress={pedirPermiso}>
-          <Text style={styles.textoBoton}>DAR PERMISO</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (paso === 'EXITO' && ultimoResultado) {
-    return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colorFondo }]}>
-        <View style={styles.header}>
-          <Text style={styles.tituloHeader}>FrescApp</Text>
-        </View>
-        <View style={styles.resultadoContainer}>
-          <View style={styles.tarjetaExito}>
-            <Text style={styles.exito}>✓ PRODUCTO REGISTRADO</Text>
-            <Text style={styles.nombreResultado}>{ultimoResultado.nombre}</Text>
-            <Text style={styles.detalleResultado}>{ultimoResultado.marca}</Text>
-            <Text style={styles.detalleResultado}>Cantidad: {ultimoResultado.cantidad}</Text>
-            <Text style={styles.fechaResultado}>Vence: {ultimoResultado.vencimiento}</Text>
-          </View>
-          <TouchableOpacity style={styles.botonPrincipal} onPress={reiniciar}>
-            <Text style={styles.textoBoton}>📷 ESCANEAR OTRO PRODUCTO</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colorFondo }]}>
-      <View style={styles.header}>
-        <Text style={styles.tituloHeader}>FrescApp</Text>
-        <Text style={styles.subtituloHeader}>Escáner de productos</Text>
-      </View>
-
-      {paso === 'REGISTRO_MANUAL' ? (
-        <ScrollView contentContainerStyle={styles.formContainer}>
-          <Text style={[styles.formTitulo, { color: colorTexto }]}>Producto nuevo</Text>
-          <Text style={[styles.formSubtitulo, { color: colorSubtexto }]}>Código: {codigoLeido}</Text>
-
-          <Text style={[styles.label, { color: colorTexto }]}>Nombre *</Text>
-          <TextInput value={nombre} onChangeText={setNombre} placeholder="Ej: Leche Entera" placeholderTextColor="#999" style={[styles.input, { backgroundColor: colorTarjeta, color: colorTexto }]} />
-
-          <Text style={[styles.label, { color: colorTexto }]}>Marca</Text>
-          <TextInput value={marca} onChangeText={setMarca} placeholder="Ej: Colun" placeholderTextColor="#999" style={[styles.input, { backgroundColor: colorTarjeta, color: colorTexto }]} />
-
-          <Text style={[styles.label, { color: colorTexto }]}>Categoría</Text>
-          <View style={styles.categoriasWrap}>
-            {CATEGORIAS.map((item) => (
-              <TouchableOpacity key={item} style={[styles.categoriaChip, categoria === item && styles.categoriaChipActiva]} onPress={() => setCategoria(item)}>
-                <Text style={categoria === item ? styles.categoriaTextoActivo : styles.categoriaTexto}>{item}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-
-          <Text style={[styles.label, { color: colorTexto }]}>Formato</Text>
-          <TextInput value={formato} onChangeText={setFormato} placeholder="Ej: 1 litro" placeholderTextColor="#999" style={[styles.input, { backgroundColor: colorTarjeta, color: colorTexto }]} />
-
-          <Text style={[styles.label, { color: colorTexto }]}>Unidad</Text>
-          <TextInput value={unidad} onChangeText={setUnidad} placeholder="Ej: L, kg, g, unidad" placeholderTextColor="#999" style={[styles.input, { backgroundColor: colorTarjeta, color: colorTexto }]} />
-
-          {procesando ? <ActivityIndicator size="large" color="#2E7D32" style={{ marginTop: 20 }} /> : (
-            <TouchableOpacity style={styles.botonPrincipal} onPress={registrarProductoNuevo}>
-              <Text style={styles.textoBoton}>GUARDAR Y CONTINUAR</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity style={styles.botonCancelar} onPress={reiniciar}>
-            <Text style={styles.textoCancelar}>Cancelar</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      ) : (
-        <View style={styles.camaraContainer}>
-          <CameraView active={isFocused}
-            ref={cameraRef}
-            style={styles.camara}
-            facing="back"
-            enableTorch={flashEncendido}
-            barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e'] }}
-            onBarcodeScanned={paso === 'INICIAL' ? manejarCodigoEscaneado : undefined}
-          >
-            <TouchableOpacity style={styles.botonFlash} onPress={() => setFlashEncendido(!flashEncendido)}>
-              <Text style={styles.textoFlash}>{flashEncendido ? '💡 LUZ ON' : '🔦 LUZ OFF'}</Text>
-            </TouchableOpacity>
-            <View style={styles.overlay}>
-              <View style={paso === 'INICIAL' ? styles.cajaCodigo : styles.cajaFecha} />
-              <Text style={styles.textoOverlay}>{paso === 'INICIAL' ? 'Apunta al código de barras' : 'Centra la fecha de vencimiento'}</Text>
-            </View>
-          </CameraView>
-
-          <ScrollView style={[styles.panel, { backgroundColor: colorTarjeta }]} contentContainerStyle={{ paddingBottom: 22 }}>
-            {paso === 'INICIAL' ? (
-              <>
-                <Text style={[styles.panelTitulo, { color: colorTexto }]}>Escanea un producto</Text>
-                <Text style={[styles.panelSubtitulo, { color: colorSubtexto }]}>Se buscará en tu catálogo propio de Firestore.</Text>
-                {procesando && <ActivityIndicator size="small" color="#2E7D32" />}
-              </>
-            ) : (
-              <>
-                <Text style={[styles.panelTitulo, { color: colorTexto }]}>✓ {productoActual?.nombre}</Text>
-                <Text style={[styles.panelSubtitulo, { color: colorSubtexto }]}>{productoActual?.marca} • {productoActual?.formato}</Text>
-
-                <TouchableOpacity style={styles.botonSecundario} onPress={leerFechaConMLKit} disabled={procesando}>
-                  <Text style={styles.textoBotonSecundario}>{procesando ? 'LEYENDO...' : '📸 DETECTAR FECHA CON CÁMARA'}</Text>
-                </TouchableOpacity>
-
-                <Text style={[styles.label, { color: colorTexto }]}>Fecha de vencimiento</Text>
-                <TextInput
-                  value={fechaManual}
-                  onChangeText={(texto) => setFechaManual(formatearFechaManual(texto))}
-                  placeholder="DD/MM/AAAA"
-                  placeholderTextColor="#999"
-                  keyboardType="number-pad"
-                  maxLength={10}
-                  style={[styles.input, { color: colorTexto, backgroundColor: isDark ? '#2C2C2E' : '#F7F7F7' }]}
-                />
-                <Text style={[styles.ayuda, { color: colorSubtexto }]}>Puedes corregir la fecha detectada o escribirla manualmente.</Text>
-
-                <Text style={[styles.label, { color: colorTexto }]}>Cantidad</Text>
-                <View style={styles.cantidadRow}>
-                  <TouchableOpacity style={styles.botonCantidad} onPress={() => setCantidadTexto(String(Math.max(1, Number(cantidadTexto || 1) - 1)))}>
-                    <Text style={styles.textoCantidad}>−</Text>
-                  </TouchableOpacity>
-                  <TextInput value={cantidadTexto} onChangeText={(t) => setCantidadTexto(t.replace(/[^0-9]/g, '').slice(0, 3))} keyboardType="number-pad" style={[styles.inputCantidad, { color: colorTexto }]} />
-                  <TouchableOpacity style={styles.botonCantidad} onPress={() => setCantidadTexto(String(Math.min(999, Number(cantidadTexto || 0) + 1)))}>
-                    <Text style={styles.textoCantidad}>+</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity style={styles.botonPrincipal} onPress={guardarProductoEnDespensa} disabled={procesando}>
-                  <Text style={styles.textoBoton}>GUARDAR EN DESPENSA</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.botonCancelar} onPress={reiniciar}>
-                  <Text style={styles.textoCancelar}>Cancelar / volver a escanear</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </ScrollView>
-        </View>
-      )}
-    </SafeAreaView>
+  const campo = (titulo: string, valor: string, cambiar: (v: string) => void, ejemplo: string, max = 120, teclado: 'default' | 'number-pad' | 'decimal-pad' = 'default') => (
+    <View><Text style={[styles.label, { color: colores.texto }]}>{titulo}</Text>
+      <TextInput accessibilityLabel={titulo} editable={!ocupado} value={valor} onChangeText={cambiar} placeholder={ejemplo}
+        maxLength={max} keyboardType={teclado} placeholderTextColor={colores.secundario}
+        style={[styles.input, { color: colores.texto, backgroundColor: colores.tarjeta, borderColor: colores.borde }]} /></View>
   );
+  const chips = (opciones: readonly string[], actual: string | null, cambiar: (v: string) => void) => (
+    <View style={styles.chips}>{opciones.map(opcion => <TouchableOpacity key={opcion} accessibilityRole="button"
+      accessibilityState={{ selected: actual === opcion, disabled: ocupado }} disabled={ocupado} onPress={() => cambiar(opcion)}
+      style={[styles.chip, { backgroundColor: actual === opcion ? '#236640' : colores.tarjeta, borderColor: colores.borde }]}>
+      <Text style={{ color: actual === opcion ? '#FFFFFF' : colores.texto }}>{opcion}</Text></TouchableOpacity>)}</View>
+  );
+  const mostrarCamara = () => {
+    if (bloqueoWeb) return <Text style={[styles.ayuda, { color: colores.secundario }]}>{bloqueoWeb}</Text>;
+    if (!permiso || revisandoPermiso) return <View style={styles.estado}><ActivityIndicator /><Text style={{ color: colores.secundario }}>Comprobando permiso de cámara…</Text></View>;
+    if (!permiso.granted || errorPermiso) return <View>
+      <Text style={[styles.ayuda, { color: colores.secundario }]}>{errorPermiso || (permiso.canAskAgain
+        ? 'Permite la cámara para escanear. También puedes ingresar alimentos manualmente.'
+        : 'El permiso de cámara está desactivado. Habilítalo en Ajustes o continúa manualmente.')}</Text>
+      <Boton titulo={permiso.canAskAgain ? 'Permitir cámara' : Platform.OS === 'web' ? 'Cómo habilitar la cámara' : 'Abrir ajustes del teléfono'}
+        onPress={() => { void gestionarPermiso(); }} secundario ocupado={ocupado || solicitandoPermiso} colores={colores} />
+      <Boton titulo="Comprobar permiso otra vez" onPress={() => { void refrescarPermiso(); }} secundario ocupado={ocupado || solicitandoPermiso} colores={colores} />
+    </View>;
+    if (errorCamara) return <View>
+      <Text style={styles.error}>{errorCamara}</Text>
+      <Boton titulo="Reintentar cámara" onPress={() => { setErrorCamara(''); setFlash(false); void refrescarPermiso(); }} secundario ocupado={ocupado} colores={colores} />
+    </View>;
+    if (!habilitarCamara || sesionCamara === null) return <Text style={{ color: colores.secundario }}>La cámara está en pausa.</Text>;
+    return <View style={styles.camaraMarco}>
+      <CameraView key={sesionCamara} ref={camara} style={styles.camara} facing="back" mode="picture" mute enableTorch={flash}
+        onCameraReady={() => { controlCamara.lista(sesionCamara); }}
+        onMountError={() => {
+          if (controlCamara.estado().id !== sesionCamara) return;
+          controlCamara.cerrar(); setFlash(false); setErrorCamara('No se pudo iniciar la cámara. Revisa el permiso o si otra aplicación la está usando.');
+        }}
+        barcodeScannerSettings={{ barcodeTypes: ['ean13', 'ean8', 'upc_a', 'upc_e'] }}
+        onBarcodeScanned={paso === 'escaner' && camaraLista && escaneoArmado && !ocupado ? ({ data }) => {
+          if (!controlCamara.vigente(sesionCamara) || bloqueado.current) return;
+          setEscaneoArmado(false); void buscarCodigo(data);
+        } : undefined} />
+      <Text style={styles.guiaCamara}>{!camaraLista ? 'Preparando cámara…' : paso === 'escaner' ? 'Centra el código de barras' : 'Centra la fecha del envase'}</Text>
+      {Platform.OS !== 'web' && <Boton titulo={flash ? 'Apagar luz' : 'Encender luz'} onPress={() => setFlash(!flash)} secundario ocupado={ocupado || !camaraLista} colores={colores} />}
+      {paso === 'escaner' && !escaneoArmado && !ocupado && <Boton titulo="Escanear otra vez" onPress={() => { setEscaneoArmado(true); setError(''); }} secundario ocupado={false} colores={colores} />}
+    </View>;
+  };
+
+  const opciones = ALIMENTOS_SIN_CODIGO.filter(([, n]) => normalizarBusqueda(n).includes(normalizarBusqueda(busqueda)));
+  return <SafeAreaView style={[styles.pantalla, { backgroundColor: colores.fondo }]}>
+    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.contenido}>
+      <Text style={[styles.marca, { color: colores.secundario }]}>FrescApp</Text>
+      <Text style={[styles.titulo, { color: colores.texto }]}>{paso === 'exito' ? 'Listo para tu despensa' : 'Agregar alimento'}</Text>
+      {paso !== 'inicio' && paso !== 'exito' && <Boton titulo={'Volver al inicio'} onPress={volverInicio} secundario={true} ocupado={ocupado} colores={colores} />}
+      {paso === 'inicio' && <>
+        <Text style={[styles.subtitulo, { color: colores.secundario }]}>Elige cómo quieres agregarlo.</Text>
+        {<Boton titulo={'Escanear código de barras'} onPress={() => { setEscaneoArmado(true); setErrorCamara(''); setPaso('escaner'); void refrescarPermiso(); }} secundario={false} ocupado={ocupado} colores={colores} />}
+        {<Boton titulo={'Escribir código de barras'} onPress={() => setPaso('codigo')} secundario={true} ocupado={ocupado} colores={colores} />}
+        {<Boton titulo={'Frutas y verduras sin código'} onPress={() => setPaso('genericos')} secundario={true} ocupado={ocupado} colores={colores} />}
+      </>}
+      {paso === 'escaner' && <>{mostrarCamara()}{<Boton titulo={'Escribir el código'} onPress={() => setPaso('codigo')} secundario={true} ocupado={ocupado} colores={colores} />}</>}
+      {paso === 'codigo' && <>
+        {campo('Código de barras', codigo, t => setCodigo(t.replace(/\D/g, '')), 'Escribe todos los dígitos', 14, 'number-pad')}
+        {<Boton titulo={'Buscar producto'} onPress={() => { void buscarCodigo(codigo); }} secundario={false} ocupado={ocupado} colores={colores} />}
+      </>}
+      {paso === 'genericos' && <>
+        <Text style={[styles.subtitulo, { color: colores.secundario }]}>Selecciona el alimento. Luego indica cuánto tienes.</Text>
+        {campo('Buscar alimento', busqueda, setBusqueda, 'Ejemplo: tomate')}
+        <View style={styles.alimentos}>{opciones.map(([id, n, cat]) => <TouchableOpacity key={id} accessibilityRole="button"
+          onPress={() => elegir({ ...alimentoGenerico(`sin:${id}`), origen: 'generico' })}
+          style={[styles.alimento, { backgroundColor: colores.tarjeta, borderColor: colores.borde }]}>
+          <Text style={[styles.nombreAlimento, { color: colores.texto }]}>{n}</Text><Text style={{ color: colores.secundario }}>{cat}</Text>
+        </TouchableOpacity>)}</View>
+        {opciones.length === 0 && <Text style={{ color: colores.secundario }}>No está en esta lista. Prueba otro nombre; iremos ampliando el catálogo.</Text>}
+      </>}
+      {paso === 'manual' && <>
+        <Text style={[styles.subtitulo, { color: colores.secundario }]}>Este código aún no está en el catálogo. El registro será personal y aparecerá como “Ingresado por ti”.</Text>
+        <Text style={{ color: colores.secundario }}>Código: {codigo}</Text>
+        {campo('Nombre del alimento *', nombre, setNombre, 'Ejemplo: Margarina con sal')}
+        {campo('Marca (opcional)', marca, setMarca, 'Como aparece en el envase', 80)}
+        <Text style={[styles.label, { color: colores.texto }]}>Categoría *</Text>
+        {chips(CATEGORIAS, categoria, v => setCategoria(v as CategoriaProducto))}
+        {campo('Presentación (opcional)', formato, setFormato, 'Ejemplo: envase de 250 g', 80)}
+        {<Boton titulo={'Guardar registro personal y continuar'} onPress={() => { void guardarManual(); }} secundario={false} ocupado={ocupado} colores={colores} />}
+      </>}
+      {paso === 'detalle' && producto && <>
+        <View style={[styles.resumen, { backgroundColor: colores.tarjeta, borderColor: colores.borde }]}>
+          <Text style={[styles.etiqueta, { color: colores.secundario }]}>{producto.origen === 'catalogo' ? 'DEL CATÁLOGO' : producto.origen === 'generico' ? 'SIN CÓDIGO DE BARRAS' : 'INGRESADO POR TI'}</Text>
+          <Text style={[styles.nombreProducto, { color: colores.texto }]}>{producto.nombre}</Text>
+          <Text style={{ color: colores.secundario }}>{producto.marca} · {producto.formato}</Text>
+          {producto.origen === 'catalogo' && <Boton titulo={'Reportar un error en los datos'} onPress={() => setReporte('')} secundario={true} ocupado={ocupado} colores={colores} />}
+        </View>
+        {reporte !== null && <View>
+          {campo('¿Qué dato está incorrecto?', reporte, setReporte, 'Describe la diferencia con el envase', 300)}
+          <Text style={{ color: colores.secundario }}>El reporte quedará guardado para revisión del administrador.</Text>
+          {<Boton titulo={'Guardar reporte'} onPress={() => { void ejecutar(async vigente => { await reportarErrorProducto(producto.codigoBarras, reporte); if (vigente()) { setReporte(null); setMensaje('Reporte guardado.'); } }); }} secundario={true} ocupado={ocupado} colores={colores} />}
+        </View>}
+        {producto.origen === 'generico' && <><Text style={[styles.label, { color: colores.texto }]}>Unidad de medida</Text>
+          {chips(UNIDADES_GRANEL, producto.unidad, u => { setProducto({ ...producto, unidad: u }); setCantidad('1'); })}</>}
+        {campo(`Cantidad (${producto.origen === 'generico' ? producto.unidad : 'envases'})`, cantidad, setCantidad, '1', 8, 'decimal-pad')}
+        <Text style={[styles.label, { color: colores.texto }]}>¿Dónde lo guardarás?</Text>
+        {chips(UBICACIONES, ubicacion, u => setUbicacion(u as typeof ubicacion))}
+        <Text style={[styles.label, { color: colores.texto }]}>Fecha del envase</Text>
+        {chips(['Con fecha', 'Sin fecha'], sinFecha ? 'Sin fecha' : 'Con fecha', v => { setSinFecha(v === 'Sin fecha'); setVerCamaraFecha(false); })}
+        {!sinFecha && <>
+          {campo('Vencimiento', fecha, setFecha, 'DD/MM/AAAA o MM/AAAA', 10)}
+          {candidatasFecha.length > 1 && <><Text style={[styles.ayuda, { color: colores.secundario }]}>Selecciona el vencimiento que indica el envase:</Text>{chips(candidatasFecha, fecha, setFecha)}</>}
+          {Platform.OS !== 'web' && <Boton titulo={verCamaraFecha ? 'Cerrar cámara de fecha' : 'Leer fecha con cámara'} onPress={() => { setVerCamaraFecha(!verCamaraFecha); setErrorCamara(''); setFlash(false); if (!verCamaraFecha) void refrescarPermiso(); }} secundario={true} ocupado={ocupado} colores={colores} />}
+          {verCamaraFecha && <>{mostrarCamara()}{permiso?.granted && <Boton titulo={'Detectar fecha'} onPress={() => { void leerFecha(); }} secundario={true} ocupado={ocupado || !camaraLista || !habilitarCamara} colores={colores} />}</>}
+        </>}
+        <Text style={[styles.ayuda, { color: colores.secundario }]}>{sinFecha ? 'Se guardará sin vencimiento. FrescApp no calculará una fecha estimada.' : 'Comprueba que la fecha corresponda al vencimiento del envase.'}</Text>
+        {<Boton titulo={'Guardar en mi despensa'} onPress={() => { void guardar(); }} secundario={false} ocupado={ocupado} colores={colores} />}
+      </>}
+      {paso === 'exito' && resultado && <>
+        <View style={[styles.resumen, { backgroundColor: colores.tarjeta, borderColor: colores.borde }]}>
+          <Text style={[styles.nombreProducto, { color: colores.texto }]}>✓ {resultado.nombre}</Text>
+          <Text style={{ color: colores.secundario }}>{resultado.cantidad} {resultado.codigoBarras.startsWith('sin:') ? resultado.unidad : 'envases'} · {resultado.ubicacion}</Text>
+          <Text style={{ color: colores.secundario }}>{resultado.vencimiento === 'Sin fecha' ? 'Sin fecha de vencimiento' : `Vence: ${resultado.vencimiento}`}</Text>
+        </View>
+        {<Boton titulo={'Agregar otro alimento'} onPress={volverInicio} secundario={false} ocupado={ocupado} colores={colores} />}
+        {<Boton titulo={'Ver mi despensa'} onPress={() => { volverInicio(); router.push('/(tabs)/despensa'); }} secundario={true} ocupado={ocupado} colores={colores} />}
+      </>}
+      {ocupado && <View style={styles.estado}><ActivityIndicator color="#388A52" /><Text style={{ color: colores.secundario }}>Procesando…</Text></View>}
+      {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
+      {!!mensaje && <Text accessibilityLiveRegion="polite" style={[styles.aviso, { color: colores.texto, borderColor: colores.borde }]}>{mensaje}</Text>}
+    </ScrollView>
+  </SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  header: { backgroundColor: '#1B5E20', paddingVertical: 14, alignItems: 'center' },
-  tituloHeader: { color: '#FFF', fontSize: 24, fontWeight: 'bold' },
-  subtituloHeader: { color: '#C8E6C9', fontSize: 13, marginTop: 2 },
-  textoPermiso: { fontSize: 17, textAlign: 'center', marginBottom: 20 },
-  camaraContainer: { flex: 1, margin: 10, borderRadius: 20, overflow: 'hidden', backgroundColor: '#000' },
-  camara: { flex: 1, minHeight: 330 },
-  botonFlash: { position: 'absolute', right: 15, top: 15, zIndex: 5, backgroundColor: 'rgba(0,0,0,0.65)', padding: 10, borderRadius: 14 },
-  textoFlash: { color: '#FFF', fontWeight: 'bold' },
-  overlay: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  cajaCodigo: { width: 260, height: 150, borderWidth: 3, borderColor: '#00E676', borderRadius: 14 },
-  cajaFecha: { width: SCREEN_WIDTH * 0.78, height: 120, borderWidth: 3, borderColor: '#FF5252', borderRadius: 14 },
-  textoOverlay: { color: '#FFF', backgroundColor: 'rgba(0,0,0,0.65)', marginTop: 18, paddingHorizontal: 15, paddingVertical: 8, borderRadius: 20, fontWeight: 'bold' },
-  panel: { maxHeight: 360, padding: 16 },
-  panelTitulo: { fontSize: 18, fontWeight: 'bold', marginBottom: 5 },
-  panelSubtitulo: { fontSize: 14, lineHeight: 20, marginBottom: 12 },
-  botonPrincipal: { backgroundColor: '#2E7D32', paddingVertical: 15, paddingHorizontal: 16, borderRadius: 14, alignItems: 'center', marginTop: 12 },
-  textoBoton: { color: '#FFF', fontSize: 15, fontWeight: 'bold', textAlign: 'center' },
-  botonSecundario: { borderWidth: 1.5, borderColor: '#2E7D32', paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginBottom: 8 },
-  textoBotonSecundario: { color: '#2E7D32', fontWeight: 'bold' },
-  botonCancelar: { paddingVertical: 13, alignItems: 'center' },
-  textoCancelar: { color: '#C62828', fontWeight: 'bold' },
-  formContainer: { padding: 20, paddingBottom: 120 },
-  formTitulo: { fontSize: 28, fontWeight: 'bold', marginTop: 8 },
-  formSubtitulo: { fontSize: 14, marginTop: 6, marginBottom: 20 },
-  label: { fontSize: 15, fontWeight: '600', marginBottom: 6, marginTop: 12 },
-  input: { borderWidth: 1, borderColor: '#D0D0D0', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
-  ayuda: { fontSize: 12, marginTop: 5 },
-  categoriasWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  categoriaChip: { borderWidth: 1, borderColor: '#BDBDBD', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#FFF' },
-  categoriaChipActiva: { backgroundColor: '#2E7D32', borderColor: '#2E7D32' },
-  categoriaTexto: { color: '#444', fontSize: 13 },
-  categoriaTextoActivo: { color: '#FFF', fontWeight: 'bold', fontSize: 13 },
-  cantidadRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 12 },
-  botonCantidad: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center' },
-  textoCantidad: { color: '#1B5E20', fontSize: 24, fontWeight: 'bold' },
-  inputCantidad: { width: 70, textAlign: 'center', fontSize: 20, fontWeight: 'bold', borderBottomWidth: 1, borderBottomColor: '#AAA', paddingVertical: 6 },
-  resultadoContainer: { flex: 1, padding: 18 },
-  tarjetaExito: { backgroundColor: '#E8F5E9', borderColor: '#A5D6A7', borderWidth: 1, borderRadius: 16, padding: 18 },
-  exito: { color: '#2E7D32', fontWeight: 'bold', fontSize: 13 },
-  nombreResultado: { color: '#1B5E20', fontWeight: 'bold', fontSize: 26, marginTop: 5 },
-  detalleResultado: { color: '#555', fontSize: 15, marginTop: 3 },
-  fechaResultado: { color: '#C62828', fontWeight: 'bold', fontSize: 16, marginTop: 8 },
+  pantalla: { flex: 1 }, contenido: { padding: 20, paddingBottom: 120, maxWidth: 680, width: '100%', alignSelf: 'center' },
+  marca: { fontSize: 14, fontWeight: '600', marginTop: 16 }, titulo: { fontSize: 30, fontWeight: '800', marginTop: 8 },
+  subtitulo: { fontSize: 16, lineHeight: 24, marginVertical: 16 },
+  boton: { minHeight: 48, padding: 14, borderRadius: 14, borderWidth: 1, justifyContent: 'center', marginTop: 12 },
+  primario: { backgroundColor: '#236640', borderColor: '#236640' }, botonTexto: { fontSize: 16, fontWeight: '700', textAlign: 'center' },
+  label: { fontSize: 15, fontWeight: '600', marginTop: 20, marginBottom: 8 },
+  input: { borderWidth: 1, borderRadius: 12, padding: 14, fontSize: 16, minHeight: 48 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, chip: { borderWidth: 1, borderRadius: 22, paddingHorizontal: 16, minHeight: 44, justifyContent: 'center' },
+  alimentos: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16 },
+  alimento: { width: '47%', borderWidth: 1, borderRadius: 14, padding: 14, minHeight: 80, justifyContent: 'center' },
+  nombreAlimento: { fontSize: 17, fontWeight: '700', marginBottom: 6 },
+  resumen: { borderWidth: 1, borderRadius: 18, padding: 18, gap: 8, marginTop: 20 }, etiqueta: { fontSize: 12, fontWeight: '700' }, nombreProducto: { fontSize: 24, fontWeight: '700' },
+  ayuda: { fontSize: 14, lineHeight: 21, marginTop: 12 }, camaraMarco: { marginTop: 16 }, camara: { height: 260, borderRadius: 16 },
+  guiaCamara: { padding: 10, backgroundColor: '#183628', color: '#FFFFFF', textAlign: 'center' },
+  estado: { flexDirection: 'row', gap: 10, alignItems: 'center', marginTop: 16 }, error: { color: '#B42318', backgroundColor: '#FFF0EE', padding: 14, borderRadius: 12, marginTop: 16 },
+  aviso: { borderWidth: 1, padding: 14, borderRadius: 12, marginTop: 16 },
 });

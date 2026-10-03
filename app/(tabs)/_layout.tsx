@@ -23,11 +23,11 @@ export default function LayoutPestanas() {
       }} />
 
       <Tabs.Screen name="camara" options={{
-        title: 'Escanear',
-        tabBarLabel: () => null,
+        title: 'Agregar',
+        
         tabBarIcon: () => (
           <View style={styles.botonCamaraCentral}>
-            <Ionicons name="camera" size={32} color="white" />
+            <Ionicons name="add" size={32} color="white" />
           </View>
         )
       }} />

@@ -27,6 +27,34 @@ export function normalizarFechaVencimiento(texto: string): string {
     : `${String(fecha.getDate()).padStart(2, '0')}/${mesAnio}`;
 }
 
+/** Candidatos OCR válidos. Nunca convierte una fecha completa imposible en mes/año. */
+export function extraerFechasOCR(texto: string): string[] {
+  const candidatos = new Set<string>();
+  const limpio = texto.toUpperCase().replace(/(?<=\d)O|O(?=\d)/g, '0');
+  const patron = /(?<!\d)(\d{1,4})\s*[/.\-]\s*(\d{1,2})(?:\s*[/.\-]\s*(\d{2,4}))?(?!\d)/g;
+  for (const m of limpio.matchAll(patron)) {
+    const a = m[1], b = m[2], c = m[3];
+    let fecha: string;
+    if (c) {
+      // También admite AAAA-MM-DD sin confundirlo con DD/MM/AAAA.
+      if (a.length === 4) fecha = `${c}/${b}/${a}`;
+      else if (c.length === 2 || c.length === 4) fecha = `${a}/${b}/${c.length === 2 ? `20${c}` : c}`;
+      else continue;
+    } else {
+      // El patrón principal conserva hasta 4 dígitos en el año mediante la segunda pasada.
+      continue;
+    }
+    if (fechaTextoADate(fecha)) candidatos.add(normalizarFechaVencimiento(fecha));
+  }
+  // Elimina TODAS las fechas completas, también las inválidas, antes de buscar MM/AAAA.
+  const sinCompletas = limpio.replace(/(?<!\d)\d{1,4}\s*[/.\-]\s*\d{1,2}\s*[/.\-]\s*\d{2,4}(?!\d)/g, ' ');
+  for (const m of sinCompletas.matchAll(/(?<![\d/.-])(\d{1,2})\s*[/.\-]\s*(\d{4})(?!\d)/g)) {
+    const fecha = `${m[1]}/${m[2]}`;
+    if (fechaTextoADate(fecha)) candidatos.add(normalizarFechaVencimiento(fecha));
+  }
+  return [...candidatos];
+}
+
 // UTC se usa como clave numérica de día civil, no para cambiar la fecha del usuario.
 // Así un día de 23 o 25 horas por cambio de horario sigue contando como un día.
 function claveDia(fecha: Date): number {
