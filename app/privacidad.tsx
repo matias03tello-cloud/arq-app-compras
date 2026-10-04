@@ -15,10 +15,15 @@ export default function PrivacidadScreen() {
   const [confirmacion, setConfirmacion] = useState('');
   const [ocupado, setOcupado] = useState(false);
   const [error, setError] = useState('');
+  const [mensaje, setMensaje] = useState('');
+  const notificar = (titulo: string, detalle: string) => {
+    if (Platform.OS === 'web') setMensaje(`${titulo}: ${detalle}`);
+    else Alert.alert(titulo, detalle);
+  };
   const run = async (operation: () => Promise<void>, success: string) => {
     if (ocupado) return;
-    setOcupado(true); setError('');
-    try { await operation(); Alert.alert('Privacidad y datos', success); }
+    setOcupado(true); setError(''); setMensaje('');
+    try { await operation(); notificar('Privacidad y datos', success); }
     catch (e) { setError(e instanceof Error ? e.message : 'No se pudo completar la operación.'); }
     finally { setOcupado(false); }
   };
@@ -26,16 +31,16 @@ export default function PrivacidadScreen() {
   const execute = async () => {
     if (!password || ocupado) return;
     if (accion === 'eliminar' && confirmacion !== 'ELIMINAR') { setError('Escribe ELIMINAR para confirmar.'); return; }
-    setOcupado(true); setError('');
+    setOcupado(true); setError(''); setMensaje('');
     try {
       if (accion === 'exportar') await exportarMisDatos(password);
       if (accion === 'correo') {
         await cambiarCorreo(email, password);
-        Alert.alert('Verifica tu correo', 'Revisa el enlace enviado al nuevo correo. El cambio se aplica después de verificarlo.');
+        notificar('Verifica tu correo', 'Revisa el enlace enviado al nuevo correo. El cambio se aplica después de verificarlo.');
       }
       if (accion === 'eliminar') {
         await solicitarEliminacion(password);
-        Alert.alert('Solicitud registrada', 'El servidor procesará la eliminación. Puede continuar aunque cierres la aplicación.');
+        notificar('Solicitud registrada', 'El servidor procesará la eliminación. Puede continuar aunque cierres la aplicación.');
       }
       setAccion(null);
     } catch (e) { setError(e instanceof Error ? e.message : 'No se pudo completar la operación.'); }
@@ -43,9 +48,10 @@ export default function PrivacidadScreen() {
   };
   const button = (title: string, onPress: () => void, danger = false) => <TouchableOpacity disabled={ocupado} accessibilityRole="button" onPress={onPress} style={[styles.button, danger && styles.danger, ocupado && { opacity: 0.6 }]}><Text style={styles.buttonText}>{title}</Text></TouchableOpacity>;
   return <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-    <ScrollView contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
-      <TouchableOpacity disabled={ocupado} onPress={() => router.back()}><Text style={styles.link}>← Ajustes</Text></TouchableOpacity>
+    <ScrollView contentContainerStyle={[styles.page, Platform.OS === 'web' && { maxWidth: 760, width: '100%', alignSelf: 'center' }]} keyboardShouldPersistTaps="handled">
+      <TouchableOpacity disabled={ocupado} onPress={() => router.canGoBack() ? router.back() : router.replace('/configuracion')}><Text style={styles.link}>← Ajustes</Text></TouchableOpacity>
       <Text style={styles.title}>Privacidad y datos</Text>
+      {!!mensaje && <Text accessibilityRole="alert" style={styles.text}>{mensaje}</Text>}
       <Text style={styles.label}>Nombre o apodo</Text>
       <TextInput style={styles.input} maxLength={80} value={nombre} onChangeText={setNombre} editable={!ocupado} />
       {button('Guardar nombre', () => run(() => corregirNombre(nombre), 'Nombre actualizado.'))}

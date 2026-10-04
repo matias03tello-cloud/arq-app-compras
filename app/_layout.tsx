@@ -1,4 +1,5 @@
 /** Entrada de navegación. Espera la preparación segura de sesión y protege las rutas privadas. */
+import {iniciarAvisos} from '../services/avisos';
 import { Stack } from 'expo-router';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { useEffect, useState, useSyncExternalStore } from 'react';
@@ -6,6 +7,7 @@ import { ActivityIndicator, Button, StyleSheet, Text, View } from 'react-native'
 import { auth, observarOperacionCuenta, operacionCuentaEnCurso, prepararSesion } from '../services/auth';
 
 export default function RootLayout() {
+  useEffect(iniciarAvisos,[]);
   const [usuario, setUsuario] = useState<User | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(false);
@@ -34,3 +36,4 @@ export default function RootLayout() {
   </Stack>;
 }
 const styles = StyleSheet.create({ cargando: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F6FAF6', gap: 16, padding: 24 } });
+

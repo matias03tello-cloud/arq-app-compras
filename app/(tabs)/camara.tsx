@@ -1,10 +1,16 @@
+import { useCompraMultiple } from '../../components/mobile/CompraMultiple';
+import { useInventarioApp } from '../../components/mobile/InventarioApp';
+import { avisoDuplicado } from '../../services/comprasModelo';
 /** Ingreso protegido, código manual y dataset propio de alimentos sin código. */
+import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTemaApp } from '../../components/mobile/TemaApp';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as FileSystem from 'expo-file-system/legacy';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { ActivityIndicator, AppState, Linking, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, useColorScheme, View } from 'react-native';
+import { ActivityIndicator, AppState, Linking, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { agregarAlInventario, fechaTextoADate } from '../../services/inventarioFirestore';
 import { buscarProductoPorCodigo, guardarProductoCatalogo, reportarErrorProducto } from '../../services/productos';
 import type { CategoriaProducto, ProductoCatalogo, ProductoInventario } from '../../services/productos';
@@ -30,6 +36,10 @@ function mensajeError(error: unknown): string {
 }
 
 export default function PantallaCamara() {
+  const compra = useCompraMultiple();
+  const compraMultiple = useLocalSearchParams<{compra?:string}>().compra === '1';
+  const inventarioDuplicados = useInventarioApp();
+
   const [permiso, pedirPermiso, consultarPermiso] = useCameraPermissions();
   const [paso, setPaso] = useState<Paso>('inicio');
   const [producto, setProducto] = useState<ProductoCatalogo | null>(null);
@@ -63,9 +73,15 @@ export default function PantallaCamara() {
   const camara = useRef<CameraView>(null);
   const operacion = useRef(0);
   const bloqueado = useRef(false);
-  const oscuro = useColorScheme() === 'dark';
-  const colores = oscuro ? { fondo: '#111915', tarjeta: '#1D2922', texto: '#F3F7F4', secundario: '#BCCCBF', borde: '#52675A' }
-    : { fondo: '#F4F7F3', tarjeta: '#FFFFFF', texto: '#183628', secundario: '#526459', borde: '#B8C8BC' };
+  const { colores } = useTemaApp();
+  const scroll = useRef<ScrollView>(null);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      if (error || mensaje) scroll.current?.scrollToEnd({ animated: true });
+      else scroll.current?.scrollTo({ y: 0, animated: false });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [paso, error, mensaje]);
 
   useFocusEffect(useCallback(() => {
     setEnFoco(true);
@@ -170,9 +186,11 @@ export default function PantallaCamara() {
         ? 'Ingresa una cantidad mayor que 0 y hasta 999, con un máximo de 3 decimales.' : 'Ingresa una cantidad entera entre 1 y 999.');
     }
     if (!sinFecha && !fechaTextoADate(fecha)) throw new Error('Revisa la fecha. Usa DD/MM/AAAA o MM/AAAA.');
-    const nuevo = await agregarAlInventario({ codigoBarras: producto.codigoBarras, nombre: producto.nombre,
+    const datos = { codigoBarras: producto.codigoBarras, nombre: producto.nombre,
       marca: producto.marca, categoria: producto.categoria, formato: producto.formato, unidad: producto.unidad,
-      cantidad: numero, vencimiento: sinFecha ? 'Sin fecha' : fecha, ubicacion });
+      cantidad: numero, vencimiento: sinFecha ? 'Sin fecha' : fecha, ubicacion };
+    if (compraMultiple) { compra.agregar(datos); if (vigente()) { volverInicio(); router.setParams({compra:'0'}); router.push('/registro-compras'); } return; }
+    const nuevo = await agregarAlInventario(datos);
     if (vigente()) { setResultado(nuevo); setPaso('exito'); setVerCamaraFecha(false); }
   });
   const leerFecha = () => ejecutar(async vigente => {
@@ -254,16 +272,20 @@ export default function PantallaCamara() {
   };
 
   const opciones = ALIMENTOS_SIN_CODIGO.filter(([, n]) => normalizarBusqueda(n).includes(normalizarBusqueda(busqueda)));
-  return <SafeAreaView style={[styles.pantalla, { backgroundColor: colores.fondo }]}>
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.contenido}>
-      <Text style={[styles.marca, { color: colores.secundario }]}>FrescApp</Text>
-      <Text style={[styles.titulo, { color: colores.texto }]}>{paso === 'exito' ? 'Listo para tu despensa' : 'Agregar alimento'}</Text>
+  return <SafeAreaView edges={['top', 'left', 'right']} style={[styles.pantalla, { backgroundColor: colores.fondo }]}>
+    <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.contenido}>
+      <Text style={[styles.marca, { color: colores.secundario }]}>{paso === 'exito' ? 'REGISTRO COMPLETADO' : paso === 'detalle' ? '2 · COMPLETA EL REGISTRO' : '1 · ELIGE TU ALIMENTO'}</Text>
+      <Text style={[styles.titulo, { color: colores.texto }]}>{paso === 'exito' ? 'Listo para tu despensa' : compraMultiple ? 'Preparar compra' : 'Agregar alimento'}</Text>
       {paso !== 'inicio' && paso !== 'exito' && <Boton titulo={'Volver al inicio'} onPress={volverInicio} secundario={true} ocupado={ocupado} colores={colores} />}
       {paso === 'inicio' && <>
         <Text style={[styles.subtitulo, { color: colores.secundario }]}>Elige cómo quieres agregarlo.</Text>
-        {<Boton titulo={'Escanear código de barras'} onPress={() => { setEscaneoArmado(true); setErrorCamara(''); setPaso('escaner'); void refrescarPermiso(); }} secundario={false} ocupado={ocupado} colores={colores} />}
-        {<Boton titulo={'Escribir código de barras'} onPress={() => setPaso('codigo')} secundario={true} ocupado={ocupado} colores={colores} />}
-        {<Boton titulo={'Frutas y verduras sin código'} onPress={() => setPaso('genericos')} secundario={true} ocupado={ocupado} colores={colores} />}
+        {[
+          { titulo: 'Escanear código', detalle: 'Apunta al código de barras del envase.', icono: 'barcode-outline' as const, accion: () => { setEscaneoArmado(true); setErrorCamara(''); setPaso('escaner'); void refrescarPermiso(); } },
+          { titulo: 'Escribir código', detalle: 'Ingresa sus números si no se puede leer.', icono: 'keypad-outline' as const, accion: () => setPaso('codigo') },
+          { titulo: 'Frutas y verduras', detalle: 'Alimentos sin código, por unidad o peso.', icono: 'leaf-outline' as const, accion: () => setPaso('genericos') },
+        ].map(opcion => <TouchableOpacity key={opcion.titulo} accessibilityRole="button" disabled={ocupado} onPress={opcion.accion} style={[styles.opcionIngreso, { backgroundColor: colores.tarjeta, borderColor: colores.borde }]}>
+          <View style={[styles.iconoIngreso, { backgroundColor: colores.suave }]}><Ionicons name={opcion.icono} size={27} color={colores.verde}/></View><View style={{ flex: 1, gap: 5 }}><Text style={{ color: colores.texto, fontSize: 18, fontWeight: '700' }}>{opcion.titulo}</Text><Text style={{ color: colores.secundario, fontSize: 13, lineHeight: 19 }}>{opcion.detalle}</Text></View><Ionicons name="chevron-forward" size={20} color={colores.secundario}/>
+        </TouchableOpacity>)}
       </>}
       {paso === 'escaner' && <>{mostrarCamara()}{<Boton titulo={'Escribir el código'} onPress={() => setPaso('codigo')} secundario={true} ocupado={ocupado} colores={colores} />}</>}
       {paso === 'codigo' && <>
@@ -291,6 +313,7 @@ export default function PantallaCamara() {
         {<Boton titulo={'Guardar registro personal y continuar'} onPress={() => { void guardarManual(); }} secundario={false} ocupado={ocupado} colores={colores} />}
       </>}
       {paso === 'detalle' && producto && <>
+        <Text accessibilityLiveRegion="polite" style={{ color: colores.texto, lineHeight: 21 }}>{inventarioDuplicados.cargando || inventarioDuplicados.desdeCache || inventarioDuplicados.error ? 'No podemos comprobar duplicados hasta actualizar la despensa.' : avisoDuplicado(producto.codigoBarras, inventarioDuplicados.productos)}</Text>
         <View style={[styles.resumen, { backgroundColor: colores.tarjeta, borderColor: colores.borde }]}>
           <Text style={[styles.etiqueta, { color: colores.secundario }]}>{producto.origen === 'catalogo' ? 'DEL CATÁLOGO' : producto.origen === 'generico' ? 'SIN CÓDIGO DE BARRAS' : 'INGRESADO POR TI'}</Text>
           <Text style={[styles.nombreProducto, { color: colores.texto }]}>{producto.nombre}</Text>
@@ -316,7 +339,7 @@ export default function PantallaCamara() {
           {verCamaraFecha && <>{mostrarCamara()}{permiso?.granted && <Boton titulo={'Detectar fecha'} onPress={() => { void leerFecha(); }} secundario={true} ocupado={ocupado || !camaraLista || !habilitarCamara} colores={colores} />}</>}
         </>}
         <Text style={[styles.ayuda, { color: colores.secundario }]}>{sinFecha ? 'Se guardará sin vencimiento. FrescApp no calculará una fecha estimada.' : 'Comprueba que la fecha corresponda al vencimiento del envase.'}</Text>
-        {<Boton titulo={'Guardar en mi despensa'} onPress={() => { void guardar(); }} secundario={false} ocupado={ocupado} colores={colores} />}
+        {<Boton titulo={compraMultiple ? 'Añadir al borrador de compra' : 'Guardar en mi despensa'} onPress={() => { void guardar(); }} secundario={false} ocupado={ocupado} colores={colores} />}
       </>}
       {paso === 'exito' && resultado && <>
         <View style={[styles.resumen, { backgroundColor: colores.tarjeta, borderColor: colores.borde }]}>
@@ -335,8 +358,10 @@ export default function PantallaCamara() {
 }
 
 const styles = StyleSheet.create({
-  pantalla: { flex: 1 }, contenido: { padding: 20, paddingBottom: 120, maxWidth: 680, width: '100%', alignSelf: 'center' },
-  marca: { fontSize: 14, fontWeight: '600', marginTop: 16 }, titulo: { fontSize: 30, fontWeight: '800', marginTop: 8 },
+  opcionIngreso: { flexDirection: 'row', alignItems: 'center', gap: 13, padding: 17, borderWidth: 1, borderRadius: 18, minHeight: 98, marginTop: 13 },
+  iconoIngreso: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  pantalla: { flex: 1 }, contenido: { padding: 20, paddingBottom: 36, maxWidth: 680, width: '100%', alignSelf: 'center' },
+  marca: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, marginTop: 4 }, titulo: { fontSize: 30, fontWeight: '800', marginTop: 8 },
   subtitulo: { fontSize: 16, lineHeight: 24, marginVertical: 16 },
   boton: { minHeight: 48, padding: 14, borderRadius: 14, borderWidth: 1, justifyContent: 'center', marginTop: 12 },
   primario: { backgroundColor: '#236640', borderColor: '#236640' }, botonTexto: { fontSize: 16, fontWeight: '700', textAlign: 'center' },

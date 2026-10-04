@@ -5,7 +5,7 @@
     "version": "5.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "splash": {
       "image": "./assets/images/icon.png",
       "resizeMode": "contain",
@@ -31,6 +31,12 @@
         {
           "configureAndroidBackup": true
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "frescapp-vencimientos-v1"
+        }
       ]
     ],
     "extra": {
@@ -48,6 +54,11 @@
         "android.permission.READ_MEDIA_VIDEO",
         "android.permission.READ_MEDIA_AUDIO"
       ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
     }
   }
 }

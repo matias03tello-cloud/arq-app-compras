@@ -1,159 +1,60 @@
-/** Lista virtualizada del inventario y acciones de borrado confirmadas por el usuario. */
+import { MovimientoEditor } from '../../components/mobile/MovimientoEditor';
+import { AperturaEditor } from '../../components/mobile/AperturaEditor';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
-import { Alert, FlatList, StyleSheet, Text, TouchableOpacity, TextInput, useColorScheme, View } from 'react-native';
-import {
-  eliminarProductoInventario,
-  obtenerEstadoVencimiento,
-  obtenerInventario,
-  ordenarPorVencimiento,
-} from '../../services/inventarioFirestore';
-import { ProductoInventario } from '../../services/productos';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useRef, useState } from 'react';
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { eliminarProductoInventario } from '../../services/inventarioFirestore';
+import type { ProductoInventario } from '../../services/productos';
+import { filtrarInventario, filtroValido } from '../../services/vistaInventario';
+import { UBICACIONES } from '../../security/identidadProducto';
+import { mensajeSeguro } from '../../security/errors';
+import { useInventarioApp } from '../../components/mobile/InventarioApp';
+import { useTemaApp } from '../../components/mobile/TemaApp';
+import { Aviso, BotonApp, Chip, Confirmacion, Encabezado, EstadoInventario, EstadoVacio, Pantalla, TarjetaProducto, ui } from '../../components/mobile/UI';
 
-import { etiquetaCantidad, resumenCantidades, normalizarBusqueda, UBICACIONES } from '../../security/identidadProducto';
-
-const COLORES_ESTADO = {
-  vencido: { fondo: '#FFEBEE', texto: '#C62828', borde: '#E53935' },
-  urgente: { fondo: '#FFEBEE', texto: '#C62828', borde: '#E53935' },
-  pronto: { fondo: '#FFF3E0', texto: '#E65100', borde: '#FB8C00' },
-  atencion: { fondo: '#FFFDE7', texto: '#8D6E00', borde: '#FBC02D' },
-  bien: { fondo: '#E8F5E9', texto: '#2E7D32', borde: '#43A047' },
-  'sin-fecha': { fondo: '#ECEFF1', texto: '#546E7A', borde: '#90A4AE' },
-};
-
+const ESTADOS = [{ valor: 'todos', texto: 'Todos' }, { valor: 'semana', texto: 'En 7 días' }, { valor: 'vencido', texto: 'Vencidos' }, { valor: 'sin-fecha', texto: 'Sin fecha' }] as const;
 export default function PantallaDespensa() {
-  const [inventario, setInventario] = useState<ProductoInventario[]>([]);
+  const { productos, cargando, error, desdeCache } = useInventarioApp();
+  const { colores } = useTemaApp();
+  const router = useRouter();
+  const params = useLocalSearchParams<{ estado?: string }>();
+  const estado = filtroValido(params.estado);
   const [busqueda, setBusqueda] = useState('');
   const [ubicacion, setUbicacion] = useState('Todos');
-  const filtrado = inventario.filter(p => normalizarBusqueda(p.nombre + ' ' + p.marca).includes(normalizarBusqueda(busqueda)) && (ubicacion === 'Todos' || (p.ubicacion ?? 'Sin ubicación') === ubicacion));
-  const isDark = useColorScheme() === 'dark';
-  const colorFondo = isDark ? '#000' : '#F2F2F7';
-  const colorTarjeta = isDark ? '#1C1C1E' : '#FFF';
-  const colorTexto = isDark ? '#FFF' : '#000';
-  const colorSubtexto = '#8E8E93';
-  const colorBorde = isDark ? '#38383A' : '#E5E5EA';
-
-  const cargar = useCallback(async () => {
-    try {
-      const lista = await obtenerInventario();
-      setInventario(ordenarPorVencimiento(lista));
-    } catch {
-      
-      Alert.alert('Error', 'No se pudo cargar la despensa desde Firestore.');
-    }
-  }, []);
-
-  useFocusEffect(useCallback(() => { cargar(); }, [cargar]));
-
-  const totalUnidades = useMemo(
-    () => resumenCantidades(inventario),
-    [inventario]
-  );
-
-  const eliminarProducto = (id: string, nombre: string) => {
-    Alert.alert('Eliminar producto', `¿Deseas eliminar "${nombre}" de tu despensa?`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Eliminar',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await eliminarProductoInventario(id);
-            setInventario((actual) => actual.filter((item) => item.id !== id));
-          } catch {
-            
-            Alert.alert('Error', 'No se pudo eliminar el producto de Firestore.');
-          }
-        },
-      },
-    ]);
-  };
-
-  return (
-    <View style={[styles.fondo, { backgroundColor: colorFondo }]}>
-      <View style={styles.cabecera}>
-        <Text style={[styles.titulo, { color: colorTexto }]}>Mi Despensa</Text>
-        <Text style={{ color: colorSubtexto }}>{inventario.length} productos • {totalUnidades}</Text>
-      </View>
-
-      <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
-        <TextInput accessibilityLabel="Buscar en mi despensa" placeholder="Buscar alimento o marca" placeholderTextColor={colorSubtexto}
-          value={busqueda} onChangeText={setBusqueda} style={{ color: colorTexto, borderColor: colorBorde, borderWidth: 1, borderRadius: 12, padding: 12, minHeight: 48 }} />
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-          {['Todos', ...UBICACIONES, 'Sin ubicación'].map(u => <TouchableOpacity key={u} accessibilityRole="button" accessibilityState={{ selected: ubicacion === u }} onPress={() => setUbicacion(u)}
-            style={{ backgroundColor: ubicacion === u ? '#236640' : colorTarjeta, padding: 12, borderRadius: 22, minHeight: 44 }}>
-            <Text style={{ color: ubicacion === u ? '#FFF' : colorTexto }}>{u}</Text></TouchableOpacity>)}
-        </View>
-      </View>
-      <FlatList
-        data={filtrado}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.lista}
-        ListEmptyComponent={
-          <View style={styles.vacioContainer}>
-            <Ionicons name="basket-outline" size={60} color={colorSubtexto} />
-            <Text style={[styles.textoVacio, { color: colorSubtexto }]}>{inventario.length ? 'No hay coincidencias.' : 'Tu despensa está vacía.'}</Text>
-            <Text style={[styles.textoVacioSecundario, { color: colorSubtexto }]}>{inventario.length ? 'Prueba otro nombre o filtro.' : 'Agrega un alimento para comenzar.'}</Text>
-          </View>
-        }
-        renderItem={({ item }) => {
-          const estado = obtenerEstadoVencimiento(item.vencimiento);
-          const colores = COLORES_ESTADO[estado.estado];
-
-          return (
-            <View style={[styles.tarjeta, { backgroundColor: colorTarjeta, borderColor: colorBorde, borderLeftColor: colores.borde }]}>
-              <View style={styles.infoPrincipal}>
-                <View style={styles.filaTitulo}>
-                  <Text style={[styles.nombre, { color: colorTexto }]} numberOfLines={1}>{item.nombre}</Text>
-                  <View style={[styles.badgeCantidad, { backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7' }]}>
-                    <Text style={[styles.textoCantidad, { color: colorTexto }]}>{etiquetaCantidad(item)}</Text>
-                  </View>
-                </View>
-
-                <Text style={[styles.marca, { color: colorSubtexto }]}>{item.marca} • {item.categoria} • {item.ubicacion ?? 'Sin ubicación'}</Text>
-                {!!item.formato && <Text style={[styles.formato, { color: colorSubtexto }]}>{item.formato}</Text>}
-
-                <View style={[styles.etiquetaFecha, { backgroundColor: colores.fondo }]}>
-                  <Ionicons name="time-outline" size={14} color={colores.texto} />
-                  <Text style={[styles.textoFecha, { color: colores.texto }]}> {estado.etiqueta} • {item.vencimiento}</Text>
-                </View>
-
-                {estado.estado === 'urgente' && (
-                  <Text style={styles.consumirPrimero}>⚡ Consumir primero</Text>
-                )}
-              </View>
-
-              <TouchableOpacity style={styles.botonBorrar} onPress={() => eliminarProducto(item.id, item.nombre)}>
-                <Ionicons name="trash-outline" size={24} color="#FF3B30" />
-              </TouchableOpacity>
-            </View>
-          );
-        }}
-      />
-    </View>
-  );
+  const [orden, setOrden] = useState<'fecha' | 'nombre'>('fecha');
+  const [salida,setSalida]=useState<ProductoInventario|null>(null);
+  const [apertura, setApertura] = useState<ProductoInventario | null>(null);
+  const [seleccion, setSeleccion] = useState<ProductoInventario | null>(null);
+  const [eliminando, setEliminando] = useState(false);
+  const [errorBorrado, setErrorBorrado] = useState('');
+  const [aviso, setAviso] = useState('');
+  const bloqueo = useRef(false);
+  const filtrados = filtrarInventario(productos, { busqueda, ubicacion, estado, orden });
+  const hayFiltros = !!busqueda || ubicacion !== 'Todos' || estado !== 'todos';
+  function limpiar() { setBusqueda(''); setUbicacion('Todos'); router.setParams({ estado: 'todos' }); }
+  async function eliminar() {
+    if (!seleccion || bloqueo.current) return;
+    bloqueo.current = true; setEliminando(true); setErrorBorrado('');
+    try { await eliminarProductoInventario(seleccion.id); setAviso(`${seleccion.nombre} se eliminó de tu despensa.`); setSeleccion(null); }
+    catch (e) { setErrorBorrado(mensajeSeguro(e)); }
+    finally { bloqueo.current = false; setEliminando(false); }
+  }
+  return <Pantalla><FlatList data={cargando || error ? [] : filtrados} keyExtractor={p => p.id} contentContainerStyle={ui.contenido} keyboardShouldPersistTaps="handled"
+    ListHeaderComponent={<View style={{ gap: 16 }}>
+      <Encabezado titulo="Mi despensa" detalle="Encuentra lo que tienes y revisa sus fechas."/>
+      <BotonApp texto="Agregar alimento" icono="add" onPress={() => router.push({pathname:'/camara',params:{compra:'0'}})}/>
+      <View style={[styles.buscador, { backgroundColor: colores.tarjeta, borderColor: colores.borde }]}><Ionicons name="search-outline" size={20} color={colores.secundario}/><TextInput accessibilityLabel="Buscar en mi despensa" placeholder="Alimento, marca o código" placeholderTextColor={colores.secundario} value={busqueda} onChangeText={setBusqueda} style={[styles.input, { color: colores.texto }]}/>{!!busqueda && <Pressable accessibilityRole="button" accessibilityLabel="Borrar búsqueda" onPress={() => setBusqueda('')} style={styles.iconButton}><Ionicons name="close" size={20} color={colores.secundario}/></Pressable>}</View>
+      <Text style={[styles.label, { color: colores.secundario }]}>Vencimiento</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{ESTADOS.map(e => <Chip key={e.valor} texto={e.texto} elegido={estado === e.valor} onPress={() => router.setParams({ estado: e.valor })}/>)}</ScrollView>
+      <Text style={[styles.label, { color: colores.secundario }]}>Ubicación</Text><ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>{['Todos', ...UBICACIONES, 'Sin ubicación'].map(u => <Chip key={u} texto={u} elegido={ubicacion === u} onPress={() => setUbicacion(u)}/>)}</ScrollView>
+      <View style={[ui.fila, { flexWrap: 'wrap' }]}><Chip texto="Por fecha" elegido={orden === 'fecha'} onPress={() => setOrden('fecha')}/><Chip texto="Por nombre" elegido={orden === 'nombre'} onPress={() => setOrden('nombre')}/>{hayFiltros && <Pressable accessibilityRole="button" onPress={limpiar} style={styles.limpiar}><Text style={{ color: colores.verde, fontWeight: '700' }}>Limpiar filtros</Text></Pressable>}</View>
+      {!cargando && !error && (!desdeCache || !!productos.length) && <Text accessibilityLiveRegion="polite" style={{ color: colores.secundario, fontSize: 13 }}>{filtrados.length} de {productos.length} registros</Text>}
+      {!cargando && !error && desdeCache && !!productos.length && <Aviso texto="Esperando al servidor. La eliminación se habilitará al confirmar la conexión."/>}
+      {!!aviso && <Aviso texto={aviso}/>}
+      <View style={{ height: 2 }}/>
+    </View>}
+    ListEmptyComponent={<EstadoInventario><EstadoVacio titulo={productos.length ? 'No hay coincidencias' : 'Tu despensa empieza aquí'} detalle={productos.length ? 'Prueba otro nombre o cambia los filtros.' : 'Agrega tu primer alimento desde el botón de arriba.'} accion={hayFiltros ? <BotonApp texto="Limpiar filtros" onPress={limpiar} secundario/> : undefined}/></EstadoInventario>}
+    renderItem={({ item }) => <TarjetaProducto producto={item} accion={<View><Pressable accessibilityRole="button" accessibilityLabel={`Registrar salida de ${item.nombre}`} disabled={desdeCache || !item.id.startsWith('v5:')} style={styles.iconButton} onPress={()=>setSalida(item)}><Ionicons name="restaurant-outline" size={20} color={colores.verde}/><Text style={{color:colores.verde,fontSize:10}}>Salida</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`Registrar apertura de ${item.nombre}`} disabled={desdeCache || !item.id.startsWith('v5:')} style={styles.iconButton} onPress={() => setApertura(item)}><Ionicons name="calendar-outline" size={20} color={colores.verde}/><Text style={{color:colores.verde,fontSize:10}}>Apertura</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`Eliminar ${item.nombre}`} accessibilityState={{ disabled: desdeCache }} disabled={desdeCache} style={[styles.iconButton, { opacity: desdeCache ? .4 : 1 }]} onPress={() => { setErrorBorrado(''); setSeleccion(item); }}><Ionicons name="trash-outline" size={20} color={colores.peligro}/></Pressable></View>}/>}
+  />{salida && <MovimientoEditor producto={salida} cerrar={()=>setSalida(null)}/>} {apertura && <AperturaEditor producto={apertura} cerrar={() => setApertura(null)}/>}<Confirmacion visible={!!seleccion} titulo="¿Eliminar este registro?" detalle={`${seleccion?.nombre || ''}. Se quitará este registro de tu despensa. Esta acción no se puede deshacer.`} ocupado={eliminando} error={errorBorrado} confirmar={eliminar} cerrar={() => { if (!bloqueo.current) setSeleccion(null); }}/></Pantalla>;
 }
-
-const styles = StyleSheet.create({
-  fondo: { flex: 1 },
-  cabecera: { paddingHorizontal: 20, paddingTop: 60, paddingBottom: 15 },
-  titulo: { fontSize: 34, fontWeight: 'bold', marginBottom: 5 },
-  lista: { paddingHorizontal: 15, paddingBottom: 110 },
-  tarjeta: { flexDirection: 'row', padding: 15, borderRadius: 14, marginBottom: 12, borderWidth: 1, borderLeftWidth: 5, alignItems: 'center' },
-  infoPrincipal: { flex: 1 },
-  filaTitulo: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  nombre: { flex: 1, fontSize: 18, fontWeight: '700', marginBottom: 4 },
-  marca: { fontSize: 14, marginBottom: 2 },
-  formato: { fontSize: 12, marginBottom: 8 },
-  badgeCantidad: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 10 },
-  textoCantidad: { fontSize: 13, fontWeight: 'bold' },
-  etiquetaFecha: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingHorizontal: 9, paddingVertical: 5, borderRadius: 8, marginTop: 6 },
-  textoFecha: { fontSize: 13, fontWeight: 'bold' },
-  consumirPrimero: { color: '#C62828', fontSize: 13, fontWeight: '800', marginTop: 7 },
-  botonBorrar: { padding: 10 },
-  vacioContainer: { alignItems: 'center', marginTop: 100 },
-  textoVacio: { fontSize: 17, marginTop: 15, fontWeight: '600' },
-  textoVacioSecundario: { fontSize: 14, marginTop: 5 },
-});
-
+const styles = StyleSheet.create({ buscador: { flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderRadius: 14, paddingLeft: 14 }, input: { flex: 1, minWidth: 0, minHeight: 50, paddingVertical: 12, fontSize: 15 }, iconButton: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }, label: { fontSize: 12, fontWeight: '700', marginBottom: -8 }, chips: { gap: 8, paddingVertical: 2 }, limpiar: { minHeight: 44, paddingHorizontal: 5, justifyContent: 'center' } });

@@ -1,0 +1,17 @@
+import {useRef,useState} from 'react';
+import {Modal,ScrollView,TextInput,View} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {collection,doc} from 'firebase/firestore';
+import {db} from '../../firebase';
+import {obtenerUidActual} from '../../services/auth';
+import {registrarMovimiento} from '../../services/movimientos';
+import {calcularSalida,MOTIVOS_DESPERDICIO,type TipoMovimiento} from '../../services/movimientosModelo';
+import type {ProductoInventario} from '../../services/productos';
+import {etiquetaCantidad} from '../../security/identidadProducto';
+import {useTemaApp} from './TemaApp';
+import {Aviso,BotonApp,Chip,Encabezado,ui} from './UI';
+export function MovimientoEditor({producto,hogar,cerrar}:{producto:ProductoInventario;hogar?:string;cerrar:()=>void}) {
+ const {colores}=useTemaApp();const [tipo,setTipo]=useState<TipoMovimiento>('consumo');const [cantidad,setCantidad]=useState('1');const [motivo,setMotivo]=useState<string>('Vencimiento');const [error,setError]=useState('');const [ocupado,setOcupado]=useState(false);const [iniciado,setIniciado]=useState(false);const bloqueo=useRef(false);const evento=useRef('');
+ async function guardar(){if(bloqueo.current)return;bloqueo.current=true;setOcupado(true);setError('');try{const uid=obtenerUidActual();if(!evento.current)evento.current=doc(hogar?collection(db,'hogares',hogar,'historial'):collection(db,'usuarios',uid,'historial')).id;calcularSalida(producto.cantidad,cantidad,producto.codigoBarras,producto.unidad || 'unidad');setIniciado(true);await registrarMovimiento(producto.id,tipo,cantidad,motivo,hogar,evento.current);if(obtenerUidActual()===uid)cerrar();}catch(e){setError(e instanceof Error && !('code' in e)?e.message:'No pudimos confirmar el movimiento. Reintenta con conexión; no se repetirá un movimiento ya registrado.');}finally{bloqueo.current=false;setOcupado(false);}}
+ return <Modal visible transparent animationType="fade" onRequestClose={()=>{if(!bloqueo.current)cerrar();}}><SafeAreaView style={ui.overlay}><ScrollView contentContainerStyle={ui.modalScroll}><View style={[ui.dialogo,{backgroundColor:colores.tarjeta}]}><Encabezado titulo="Registrar salida" detalle={`${producto.nombre} · Disponible: ${etiquetaCantidad(producto)}`}/><Aviso texto="Registra lo que consumiste o desechaste. La cantidad se descontará de este lote y quedará en el historial."/><View style={[ui.fila,{flexWrap:'wrap'}]}>{(['consumo','desperdicio'] as const).map(t=><Chip key={t} texto={t==='consumo'?'Consumí':'Deseché'} elegido={tipo===t} onPress={()=>{if(!iniciado)setTipo(t);}}/>)}</View><TextInput accessibilityLabel="Cantidad de salida" value={cantidad} editable={!iniciado} onChangeText={setCantidad} keyboardType="decimal-pad" maxLength={8} style={{color:colores.texto,borderColor:colores.borde,borderWidth:1,minHeight:48,padding:12,borderRadius:12}}/>{tipo==='desperdicio' && <View style={[ui.fila,{flexWrap:'wrap'}]}>{MOTIVOS_DESPERDICIO.map(m=><Chip key={m} texto={m} elegido={motivo===m} onPress={()=>{if(!iniciado)setMotivo(m);}}/>)}</View>}{!!error && <Aviso texto={error} error/>}{iniciado && !!error && <Aviso texto="Para corregir la cantidad, cierra este formulario y revisa primero el historial y lo disponible antes de registrar otra salida."/>}<BotonApp texto={iniciado?'Reintentar salida':'Confirmar salida'} ocupado={ocupado} onPress={()=>{void guardar();}}/><BotonApp texto="Cancelar" secundario deshabilitado={ocupado} onPress={cerrar}/></View></ScrollView></SafeAreaView></Modal>;
+}

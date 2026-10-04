@@ -1,0 +1,38 @@
+import {useMemo,useRef,useState} from 'react';
+import {Modal,ScrollView,Text,TextInput,View} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {useRouter} from 'expo-router';
+import {INGREDIENTES,type IngredienteReceta} from '../../data/recetas';
+import {sugerirRecetas,normalizarAlimento} from '../../services/recetasModelo';
+import {agregarIngredienteACompras} from '../../services/recetasCompras';
+import {UNIDADES_COMPRA,type UnidadCompra} from '../../services/comprasModelo';
+import type {ProductoInventario} from '../../services/productos';
+import {auth} from '../../services/auth';
+import {useTemaApp} from './TemaApp';
+import {Aviso,BotonApp,Chip,Encabezado,ui} from './UI';
+interface Props {productos:ProductoInventario[];listo:boolean;error?:string;reintentar:()=>void;revisionDia?:number}
+export function RecetasPantalla({productos,listo,error='',reintentar}:Props){
+ const {colores}=useTemaApp();const router=useRouter();const uid=auth.currentUser?.uid;const [busqueda,setBusqueda]=useState('');const [filtro,setFiltro]=useState('con-ingredientes');const [abierta,setAbierta]=useState('');const [seleccion,setSeleccion]=useState<IngredienteReceta|null>(null);const [cantidad,setCantidad]=useState('');const [unidad,setUnidad]=useState<UnidadCompra>('unidad');const [ocupado,setOcupado]=useState(false);const [fallo,setFallo]=useState('');const [mensaje,setMensaje]=useState('');const bloqueo=useRef(false);
+ const diaCivil=new Date().toDateString();const ideas=useMemo(()=>sugerirRecetas(productos,new Date(diaCivil)),[productos,diaCivil]);const visibles=ideas.filter(a=>normalizarAlimento(a.receta.nombre).includes(normalizarAlimento(busqueda)) && (filtro==='todas'||(filtro==='principales'?a.faltantes.length===0:a.disponibles.length>0)));
+ async function agregar(){if(!seleccion || bloqueo.current)return;bloqueo.current=true;setOcupado(true);setFallo('');try{const resultado=await agregarIngredienteACompras(seleccion.id,cantidad,unidad);if(auth.currentUser?.uid===uid){setMensaje(resultado==='agregado'?`${INGREDIENTES[seleccion.id].nombre} añadido a tu lista de compras.`:resultado==='pendiente'?'Este ingrediente ya está pendiente en tu lista. Revisa allí su cantidad.':'Este ingrediente ya está marcado como comprado. Revisa tu lista y regístralo en la despensa si corresponde.');setSeleccion(null);}}catch(e){setFallo(e instanceof Error && !('code' in e)?e.message:'No pudimos confirmar la compra. Reintenta con conexión.');}finally{bloqueo.current=false;setOcupado(false);}}
+ const campo={color:colores.texto,borderColor:colores.borde,borderWidth:1,padding:12,borderRadius:12,minHeight:48};
+ return <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={ui.contenido}><Encabezado titulo="Ideas para cocinar" detalle="12 recetas del dataset propio, ordenadas para aprovechar tus fechas próximas."/>
+ <Aviso texto="Las coincidencias indican presencia, no cantidad suficiente. Las recetas orientan dos porciones; comprueba cantidades, etiquetas y estado de cada alimento. Aceite, sal y agua se revisan aparte. Los vencidos y fechas inválidas no se usan para sugerir."/>
+ <BotonApp texto="Ver mi lista de compras" secundario onPress={()=>router.push('/compras')}/>
+ {!listo?<><Aviso texto={error || 'Esperando una despensa completa confirmada por el servidor.'} error={!!error}/><BotonApp texto="Reintentar despensa para recetas" secundario onPress={reintentar}/></>:<>
+ <TextInput accessibilityLabel="Buscar receta" value={busqueda} onChangeText={setBusqueda} maxLength={80} placeholder="Ej. arroz, lentejas, tortilla" placeholderTextColor={colores.secundario} style={campo}/>
+ <View style={[ui.fila,{flexWrap:'wrap'}]}>{[['con-ingredientes','Con algo de mi despensa'],['principales','Principales registrados'],['todas','Todas las ideas']].map(([id,t])=><Chip key={id} texto={t} elegido={filtro===id} onPress={()=>setFiltro(id)}/>)}</View>
+ {!!mensaje && <Aviso texto={mensaje}/>}<Text style={{color:colores.secundario}}>{visibles.length} ideas · Solo tu despensa personal.</Text>
+ {!visibles.length && <Aviso texto="No hay ideas para este filtro. Revisa Todas las ideas o registra tus alimentos. El dataset inicial cubre ingredientes comunes; no todos los productos tienen coincidencia."/>}
+ {visibles.map(a=><View key={a.receta.id} style={{padding:18,borderRadius:18,borderWidth:1,borderColor:colores.borde,backgroundColor:colores.tarjeta,gap:12}}><Text accessibilityRole="header" style={{color:colores.texto,fontSize:20,fontWeight:'700'}}>{a.receta.nombre}</Text><Text style={{color:colores.secundario}}>2 porciones orientativas · {a.receta.tiempo}</Text><Text style={{color:colores.verde}}>{a.disponibles.length}/{a.receta.ingredientes.length} ingredientes principales registrados{a.urgentes?` · ${a.urgentes} con fecha en 3 días`:''}</Text>{!!a.sinFecha && <Aviso texto="Hay ingredientes sin fecha. Revisa sus etiquetas y estado antes de usarlos."/>}
+ <BotonApp texto={abierta===a.receta.id?`Cerrar receta: ${a.receta.nombre}`:`Ver receta: ${a.receta.nombre}`} secundario onPress={()=>setAbierta(v=>v===a.receta.id?'':a.receta.id)}/>
+ {abierta===a.receta.id && <><Text style={{color:colores.texto,fontWeight:'700'}}>Ingredientes principales</Text>{a.receta.ingredientes.map(ing=>{const disponible=a.disponibles.find(d=>d.id===ing.id);return <View key={ing.id} style={{gap:8}}><Text style={{color:colores.texto}}>{INGREDIENTES[ing.id].nombre} · {ing.cantidad} {ing.unidad} · {disponible?'Registrado':'Falta en la despensa'}</Text>{disponible?<Text style={{color:colores.secundario}}>{disponible.lotes.slice(0,3).map(p=>`${p.nombre} (${p.marca}): ${p.cantidad} ${p.codigoBarras.startsWith('sin:')?p.unidad||'unidad':'envases'} · ${p.vencimiento}`).join('\n')}{disponible.lotes.length>3?`\nY ${disponible.lotes.length-3} lotes más.`:''}</Text>:<BotonApp texto={`Añadir a compras: ${INGREDIENTES[ing.id].nombre}`} secundario deshabilitado={ocupado} onPress={()=>{setSeleccion(ing);setCantidad(String(ing.cantidad));setUnidad(ing.unidad);setFallo('');}}/>}</View>;})}<Text style={{color:colores.secundario}}>Básicos que debes revisar: {a.receta.basicos.join(', ')}.</Text><Text style={{color:colores.texto,fontWeight:'700'}}>Preparación</Text>{a.receta.pasos.map((p,n)=><Text key={n} style={{color:colores.texto,lineHeight:22}}>{n+1}. {p}</Text>)}<Aviso texto="Ver una receta no descuenta existencias. Cuando uses un alimento, registra la cantidad en Consumí / deseché desde tu despensa."/></>}
+ </View>)}
+ </>}
+ <Modal visible={!!seleccion && listo} transparent animationType="fade" onRequestClose={()=>{if(!bloqueo.current)setSeleccion(null);}}><SafeAreaView style={ui.overlay}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={ui.modalScroll}><View style={[ui.dialogo,{backgroundColor:colores.tarjeta}]}>
+ <Encabezado titulo={`Añadir ${seleccion?INGREDIENTES[seleccion.id].nombre:''} a compras`} detalle="Revisa cantidad y unidad. Si el ingrediente ya está en tu lista, se conservará su registro."/>
+ <TextInput accessibilityLabel="Cantidad de ingrediente para comprar" value={cantidad} editable={!ocupado} onChangeText={setCantidad} maxLength={8} keyboardType="decimal-pad" style={campo}/><View style={[ui.fila,{flexWrap:'wrap'}]}>{UNIDADES_COMPRA.map(u=><Chip key={u} texto={u} elegido={unidad===u} onPress={()=>{if(!ocupado)setUnidad(u);}}/>)}</View>
+ {!!fallo && <Aviso texto={fallo} error/>}<BotonApp texto="Confirmar ingrediente" ocupado={ocupado} onPress={()=>{void agregar();}}/><BotonApp texto="Cancelar" secundario deshabilitado={ocupado} onPress={()=>setSeleccion(null)}/>
+ </View></ScrollView></SafeAreaView></Modal>
+ </ScrollView>;
+}
