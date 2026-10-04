@@ -157,3 +157,68 @@ test('reportes son privados, solo de productos del catálogo y no cambian datos 
   await assertFails(setDoc(ref, { ...reporte, aprobado: true }));
   await assertFails(setDoc(doc(db, 'usuarios/A/reportesCatalogo/88888888'), { ...reporte, codigoBarras: '88888888' }));
 });
+
+const shopping = () => ({ nombre: 'Arroz 1 kg', cantidad: 2, unidad: 'unidad', comprado: false, creadoEn: serverTimestamp(), actualizadoEn: serverTimestamp() });
+test('lista de compras: dueño crea, marca, lee y elimina; conserva identidad', async () => {
+ const ref = doc(context('A'), 'usuarios/A/listaCompras/arroz');
+ await assertSucceeds(setDoc(ref, shopping()));
+ await assertSucceeds(updateDoc(ref, { comprado: true, actualizadoEn: serverTimestamp() }));
+ await assertSucceeds(getDoc(ref));
+ await assertFails(updateDoc(ref, { nombre: 'Otro', actualizadoEn: serverTimestamp() }));
+ await assertSucceeds(deleteDoc(ref));
+});
+test('lista de compras: aislamiento de otra cuenta y anónimos', async () => {
+ await assertSucceeds(setDoc(doc(context('A'), 'usuarios/A/listaCompras/arroz'), shopping()));
+ for (const db of [context('B'), env.unauthenticatedContext().firestore()]) {
+  const ref = doc(db, 'usuarios/A/listaCompras/arroz');
+  await assertFails(getDoc(ref)); await assertFails(getDocs(collection(db, 'usuarios/A/listaCompras')));
+  await assertFails(setDoc(ref, shopping())); await assertFails(updateDoc(ref, { comprado: true, actualizadoEn: serverTimestamp() })); await assertFails(deleteDoc(ref));
+ }
+});
+test('lista de compras: rechaza cantidades, campos y timestamps falsos', async () => {
+ const ref = doc(context('A'), 'usuarios/A/listaCompras/arroz');
+ for (const cambios of [{cantidad:0},{cantidad:1000},{cantidad:1.5},{unidad:'cajas'},{extra:'x'},{comprado:true},{creadoEn:Timestamp.fromMillis(1)},{actualizadoEn:Timestamp.fromMillis(1)}]) await assertFails(setDoc(ref,{...shopping(),...cambios}));
+ await assertSucceeds(setDoc(ref,{...shopping(),unidad:'kg',cantidad:0.25}));
+});
+
+test('apertura: dueño registra y quita; rechaza futuro, fechas imposibles y terceros', async()=>{
+ const ref=doc(context('A'),'usuarios/A/inventario/apertura');await assertSucceeds(setDoc(ref,item()));
+ await assertSucceeds(updateDoc(ref,{abiertoEn:'2024-02-29'}));
+ for(const abiertoEn of ['2999-01-01','2025-02-29','2024-04-31','2024-13-01','texto']) await assertFails(updateDoc(ref,{abiertoEn}));
+ await assertFails(updateDoc(doc(context('B'),'usuarios/A/inventario/apertura'),{abiertoEn:'2024-02-29'}));
+ await assertSucceeds(updateDoc(ref,{abiertoEn:''}));
+});
+async function seedHogar(){await env.withSecurityRulesDisabled(async c=>{const db=c.firestore();await setDoc(doc(db,'hogares/casa'),{nombre:'Casa',propietario:'A',miembros:['A','B'],nombres:{A:'A',B:'B'},estado:'activo'});await setDoc(doc(db,'hogares/casa/inventario/leche'),item());});}
+test('hogar: integrantes leen y gestionan alimentos; ajenos no leen ni enumeran',async()=>{
+ await seedHogar();const db=context('B');const ref=doc(db,'hogares/casa/inventario/leche');
+ await assertSucceeds(getDoc(doc(db,'hogares/casa')));await assertSucceeds(getDocs(collection(db,'hogares/casa/inventario')));await assertSucceeds(updateDoc(ref,{abiertoEn:'2024-02-29'}));await assertSucceeds(setDoc(doc(db,'hogares/casa/inventario/otro'),item()));
+ await assertFails(getDoc(doc(context('C'),'hogares/casa')));await assertFails(getDocs(collection(context('C'),'hogares/casa/inventario')));await assertFails(getDocs(collection(db,'hogares')));
+ await assertFails(updateDoc(ref,{nombre:'Fideos'}));await assertFails(deleteDoc(doc(context('C'),'hogares/casa/inventario/leche')));
+});
+test('hogar: cliente no se otorga membresía ni cambia invitaciones ni índices',async()=>{
+ await seedHogar();for(const uid of ['A','B','C']){const db=context(uid);await assertFails(updateDoc(doc(db,'hogares/casa'),{miembros:['A','B','C']}));await assertFails(setDoc(doc(db,`usuarios/${uid}/hogares/casa`),{nombre:'Casa'}));}
+});
+test('hogar: quitar miembro o cerrar bloquea datos; eliminación de dueño también',async()=>{
+ await seedHogar();await env.withSecurityRulesDisabled(c=>updateDoc(doc(c.firestore(),'hogares/casa'),{miembros:['A']}));await assertFails(getDocs(collection(context('B'),'hogares/casa/inventario')));
+ await env.withSecurityRulesDisabled(c=>setDoc(doc(c.firestore(),'eliminaciones/A'),{estado:'pendiente'}));await assertFails(getDocs(collection(context('A'),'hogares/casa/inventario')));
+ await env.withSecurityRulesDisabled(c=>updateDoc(doc(c.firestore(),'hogares/casa'),{miembros:['A','B']}));await assertFails(getDocs(collection(context('B'),'hogares/casa/inventario')));
+ await env.withSecurityRulesDisabled(async c=>{await deleteDoc(doc(c.firestore(),'eliminaciones/A'));await updateDoc(doc(c.firestore(),'hogares/casa'),{estado:'cerrado'});});await assertFails(getDocs(collection(context('B'),'hogares/casa/inventario')));
+});
+test('hogar: lista compartida conserva permisos y esquema; cuentas privadas siguen privadas',async()=>{
+ await seedHogar();const ref=doc(context('B'),'hogares/casa/listaCompras/arroz');await assertSucceeds(setDoc(ref,shopping()));await assertSucceeds(updateDoc(ref,{comprado:true,actualizadoEn:serverTimestamp()}));await assertFails(getDoc(doc(context('C'),'hogares/casa/listaCompras/arroz')));await assertFails(getDocs(collection(context('B'),'usuarios/A/inventario')));
+});
+const movimiento=(cantidad=1,restante=1)=>({productoId:'a',codigoBarras:product.codigoBarras,nombre:product.nombre,marca:product.marca,formato:product.formato,unidad:product.unidad,vencimiento:'20/09/2026',tipo:'consumo',motivo:'Consumido',cantidad,restante,creadoEn:serverTimestamp()});
+function loteSalida(db,evento='salida',datos=movimiento(),quitar=false){const b=writeBatch(db);b.set(doc(db,`usuarios/A/historial/${evento}`),datos);b.set(doc(db,'usuarios/A/salidasConfirmadas/a'),{eventoId:evento});if(quitar)b.delete(doc(db,'usuarios/A/inventario/a'));else b.update(doc(db,'usuarios/A/inventario/a'),{cantidad:datos.restante});return b;}
+test('historial solo registra junto con descuento exacto; completo retira lote',async()=>{
+ const db=context('A');await assertFails(setDoc(doc(db,'usuarios/A/historial/falso'),movimiento()));await assertSucceeds(loteSalida(db).commit());await assertSucceeds(loteSalida(db,'final',movimiento(1,0),true).commit());await assertFails(updateDoc(doc(db,'usuarios/A/historial/final'),{cantidad:99}));await assertFails(deleteDoc(doc(db,'usuarios/A/historial/final')));
+});
+test('historial rechaza falsificación, excesos, datos ajenos y doble evento por descuento',async()=>{
+ const db=context('A');for(const campos of [{nombre:'Fideos'},{cantidad:3,restante:0},{restante:-1},{motivo:'texto ajeno'}])await assertFails(loteSalida(db,'error',{...movimiento(),...campos}).commit());await assertFails(loteSalida(context('B')).commit());await assertFails(getDocs(collection(context('B'),'usuarios/A/historial')));
+ const b=loteSalida(db,'uno');b.set(doc(db,'usuarios/A/historial/dos'),movimiento());await assertFails(b.commit());assertSucceeds(getDoc(doc(db,'usuarios/A/inventario/a')));
+});
+test('registro de compra exige alimento nuevo y testigo privado inmutable',async()=>{
+ const db=context('A');await assertFails(setDoc(doc(db,'usuarios/A/comprasRegistradas/a'),{codigoBarras:product.codigoBarras,creadoEn:serverTimestamp()}));const b=writeBatch(db);b.set(doc(db,'usuarios/A/inventario/nueva'),item());b.set(doc(db,'usuarios/A/comprasRegistradas/nueva'),{codigoBarras:product.codigoBarras,creadoEn:serverTimestamp()});await assertSucceeds(b.commit());await assertFails(deleteDoc(doc(db,'usuarios/A/comprasRegistradas/nueva')));await assertFails(getDocs(collection(context('B'),'usuarios/A/comprasRegistradas')));
+});
+test('historial del hogar exige miembro y descuento enlazado; no expone lo personal',async()=>{
+ await seedHogar();const db=context('B');const b=writeBatch(db);b.set(doc(db,'hogares/casa/historial/salida'),{...movimiento(),productoId:'leche'});b.set(doc(db,'hogares/casa/salidasConfirmadas/leche'),{eventoId:'salida'});b.update(doc(db,'hogares/casa/inventario/leche'),{cantidad:1});await assertSucceeds(b.commit());await assertFails(getDocs(collection(context('C'),'hogares/casa/historial')));await assertFails(getDocs(collection(db,'usuarios/A/historial')));
+});

@@ -7,18 +7,11 @@ import { NuevoProductoInventario, ProductoInventario, validarProducto, buscarPro
 import { cantidadValida, mismaIdentidad, UBICACIONES } from '../security/identidadProducto';
 
 import { normalizarFechaVencimiento } from './fechas';
+import { normalizarProducto } from './inventarioModelo';
 // Reexportar conserva los imports de las pantallas sin duplicar la lógica.
 export { fechaTextoADate, calcularDiasRestantes, obtenerEstadoVencimiento, ordenarPorVencimiento } from './fechas';
 export type { EstadoVencimiento, EstadoProducto } from './fechas';
 
-// Conserva valores por defecto para registros históricos incompletos.
-function normalizarProducto(data: Partial<ProductoInventario>, id: string): ProductoInventario {
-  return { id, codigoBarras: data.codigoBarras ?? '', nombre: data.nombre ?? 'Producto',
-    marca: data.marca ?? 'Sin marca', categoria: data.categoria ?? 'Otros', formato: data.formato ?? '',
-    unidad: data.unidad ?? 'unidad', cantidad: Number(data.cantidad) > 0 ? Number(data.cantidad) : 1,
-    vencimiento: data.vencimiento ?? 'Sin fecha', fechaRegistro: data.fechaRegistro ?? '',
-    ...(data.ubicacion ? { ubicacion: data.ubicacion } : {}) };
-}
 /** Consulta por UID y descarta respuestas que llegan tras cambiar de cuenta.
  * Esta versión aún carga el inventario completo: la paginación es un cambio pendiente.
  */
