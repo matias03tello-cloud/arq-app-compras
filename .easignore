@@ -1,0 +1,67 @@
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+app-example
+
+# generated native folders
+/ios
+/android
+
+# FrescApp: datos locales y credenciales de servidor
+.env
+.env.*
+!.env.example
+!functions/.env.example
+*service-account*.json
+*serviceAccount*.json
+*firebase-adminsdk*.json
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+*-debug.log
+exports/
+
+# Evidencias y paquetes generados en verificaciones de entrega
+docs/entrega/evidencia-local/
+*.apk
+*.aab
+
+# Material que no forma parte de la app compilada
+docs/
+tests/
+.github/

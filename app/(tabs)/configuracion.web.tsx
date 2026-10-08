@@ -16,7 +16,7 @@ export default function CuentaWeb() {
   }
   return <><Titulo etiqueta="Tu espacio personal" titulo="Mi cuenta" descripcion="La misma cuenta que usas en la app FrescApp."/>
     <section className="panel account-panel"><h2>Datos de tu cuenta</h2><dl><dt>Nombre o apodo</dt><dd>{usuario?.displayName || 'Sin nombre registrado'}</dd><dt>Correo electrónico</dt><dd>{usuario?.email}</dd><dt>Verificación de correo</dt><dd>{usuario?.emailVerified ? 'Verificado' : 'Pendiente de verificación'}</dd></dl>
-      <div className="account-actions"><Link href="/privacidad" className="btn primary">Privacidad y mis datos</Link><button className="btn" onClick={salir} disabled={ocupado}>{ocupado ? 'Cerrando sesión…' : 'Cerrar sesión'}</button></div>
+      <div className="account-actions"><Link href="/hogar" className="btn">Mi hogar compartido</Link><Link href="/privacidad" className="btn primary">Privacidad y mis datos</Link><button className="btn" onClick={salir} disabled={ocupado}>{ocupado ? 'Cerrando sesión…' : 'Cerrar sesión'}</button></div>
       {error && <p className="notice error" role="alert" style={{ marginTop: 18 }}>{error}</p>}
       <p className="page-footnote">La sesión web se mantiene mientras esta página está abierta. Si la recargas o la cierras, tendrás que iniciar sesión nuevamente.</p>
     </section></>;

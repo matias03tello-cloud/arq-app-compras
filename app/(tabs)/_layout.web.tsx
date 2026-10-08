@@ -37,7 +37,7 @@ function MarcoWeb() {
       <div><p className="nav-caption">Tu hogar, organizado</p><nav className="web-nav" aria-label="Navegación principal">
         {enlaces.map(e => <Link key={e.href} href={e.href} aria-current={ruta === e.href ? 'page' : undefined}><Icono nombre={e.icono}/>{e.texto}</Link>)}
       </nav></div>
-      <div className="sidebar-note"><Icono nombre="hoja" size={26}/><strong>Menos olvido.<br/>Más aprovechamiento.</strong><p>Planifica tu compra aquí. Registra los alimentos y sus fechas desde la app.</p></div>
+      <div className="sidebar-note"><Icono nombre="hoja" size={26}/><strong>Menos olvido.<br/>Más aprovechamiento.</strong><p>Planifica tu compra, registra alimentos y consulta sus fechas desde aquí.</p></div>
       <button className="logout sidebar-logout" onClick={salir} disabled={saliendo}><Icono nombre="salir" size={18}/>{saliendo ? 'Cerrando…' : 'Cerrar sesión'}</button>
     </aside>
     <div className="web-main">

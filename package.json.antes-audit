@@ -10,7 +10,7 @@
     "web": "expo start --web",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test:unit": "node --experimental-strip-types --test tests/security.test.mjs tests/fechas.test.mjs tests/ingreso.test.mjs tests/camara.test.mjs tests/experiencia.test.mjs tests/compras.test.mjs tests/apertura.test.mjs tests/avisos.test.mjs tests/recetas.test.mjs tests/integracion-etapas.test.mjs functions/test/*.test.js tests/dependencias.test.cjs",
+    "test:unit": "node --experimental-strip-types --test tests/security.test.mjs tests/fechas.test.mjs tests/ingreso.test.mjs tests/camara.test.mjs tests/experiencia.test.mjs tests/compras.test.mjs tests/apertura.test.mjs tests/avisos.test.mjs tests/recetas.test.mjs tests/integracion-etapas.test.mjs functions/test/*.test.js",
     "test:rules": "firebase emulators:exec --only firestore --project demo-frescapp-security \"node --test tests/firestore.rules.test.mjs\"",
     "test:integration": "firebase emulators:exec --only auth,firestore --project demo-frescapp-security \"node --test tests/privacy.integration.test.mjs\"",
     "test:flujos": "firebase emulators:exec --only firestore --project demo-frescapp-security \"node --test --test-concurrency=1 tests/compra-historial.integration.test.mjs tests/recetas-compras.integration.test.mjs tests/hogares.integration.test.cjs\""
@@ -56,20 +56,8 @@
     "@types/react": "~19.2.4",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~57.0.2",
-    "firebase-tools": "15.32.1",
+    "firebase-tools": "^14.17.0",
     "typescript": "~6.0.3"
   },
-  "private": true,
-  "overrides": {
-    "@grpc/grpc-js": "1.14.5",
-    "gaxios@6.7.1": {
-      "uuid": "11.1.1"
-    },
-    "xcode@3.0.1": {
-      "uuid": "11.1.1"
-    },
-    "get-uri": {
-      "basic-ftp": "6.2.1"
-    }
-  }
+  "private": true
 }
