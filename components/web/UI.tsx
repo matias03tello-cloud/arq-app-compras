@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { mostrarApertura } from '../../services/apertura';
 import { obtenerEstadoVencimiento } from '../../services/fechas';
 import { etiquetaCantidad } from '../../security/identidadProducto';
 import type { ProductoInventario } from '../../services/productos';
@@ -33,7 +34,7 @@ export function ProductoFila({ producto }: { producto: ProductoInventario }) {
   const estado = obtenerEstadoVencimiento(producto.vencimiento);
   return <article className="product-row">
     <div className={`product-mark ${producto.codigoBarras.startsWith('sin:') ? 'fresh' : ''}`} aria-hidden="true">{producto.codigoBarras.startsWith('sin:') ? <Icono nombre="hoja"/> : <Icono nombre="despensa"/>}</div>
-    <div className="product-name"><h3>{producto.nombre}</h3><p>{producto.marca}{producto.formato ? ` · ${producto.formato}` : ''}</p><span className="mobile-location">{producto.ubicacion || 'Sin ubicación'}</span></div>
+    <div className="product-name"><h3>{producto.nombre}</h3><p>{producto.marca}{producto.formato ? ` · ${producto.formato}` : ''}</p>{!!producto.abiertoEn && <p>Abierto el {mostrarApertura(producto.abiertoEn)}</p>}<span className="mobile-location">{producto.ubicacion || 'Sin ubicación'}</span></div>
     <div className="product-quantity">{etiquetaCantidad(producto)}</div>
     <div className="product-location">{producto.ubicacion || 'Sin ubicación'}</div>
     <div className="product-date"><span className={`badge status-${estado.estado}`}>{estado.etiqueta}</span><small>{estado.estado !== 'sin-fecha' ? producto.vencimiento : 'Fecha no registrada'}</small></div>

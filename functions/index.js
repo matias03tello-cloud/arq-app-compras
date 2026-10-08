@@ -19,6 +19,8 @@ async function ignoreMissing(operation) {
   try { await operation(); }
   catch (e) { if (e.code !== 'auth/user-not-found') throw e; }
 }
+const hogares = require('./hogares').crearGestorHogares({ db, FieldValue, Timestamp, HttpsError });
+exports.gestionarHogar = onCall(options, request => hogares.gestionar(request));
 const deletionDeps = {
   disableAndRevoke: async uid => {
     await ignoreMissing(() => adminAuth.updateUser(uid, { disabled: true }));
@@ -34,7 +36,7 @@ const deletionDeps = {
       await batch.commit();
     }
   },
-  deletePrivateTree: uid => db.recursiveDelete(db.doc(`usuarios/${uid}`)),
+  deletePrivateTree: async uid => { await hogares.limpiarUsuario(uid); await db.recursiveDelete(db.doc(`usuarios/${uid}`)); },
   deleteAuth: uid => ignoreMissing(() => adminAuth.deleteUser(uid)),
   markCompleted: uid => db.doc(`eliminaciones/${uid}`).update({ estado: 'completada', completadaEn: FieldValue.serverTimestamp() }),
 };
