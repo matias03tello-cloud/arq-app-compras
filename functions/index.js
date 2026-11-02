@@ -6,11 +6,11 @@ const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestor
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
-// API REST propia para inventario y lista de compras.
-exports.api = require('./api').api;
 const { defineBoolean } = require('firebase-functions/params');
 const { assertRecentAuthentication, deleteAccountData } = require('./deletion');
 initializeApp();
+// API REST propia para inventario y lista de compras.
+exports.api = require('./api').api;
 const db = getFirestore();
 const adminAuth = getAuth();
 // Cambiar a true después de integrar App Check en TODAS las plataformas usadas.
