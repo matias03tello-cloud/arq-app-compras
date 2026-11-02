@@ -59,6 +59,7 @@ function validShopping(body, partial = false) {
   if (!partial || 'comprado' in body) {
     if (typeof body.comprado !== 'boolean') return false;
   }
+  if (!partial && body.comprado !== false) return false;
   const unidad = body.unidad;
   const cantidad = body.cantidad;
   if (unidad === 'unidad' && typeof cantidad === 'number' && !Number.isInteger(cantidad)) return false;
@@ -85,7 +86,8 @@ function validInventory(body, partial = false) {
   if ('categoria' in body && !['Lacteos','Carnes','Frutas','Verduras','Despensa','Bebidas','Congelados','Snacks','Otros'].includes(body.categoria)) return false;
   if ('vencimiento' in body && body.vencimiento !== 'Sin fecha'
     && !/^([0-9]{2}\/)?[0-9]{2}\/[0-9]{4}$/.test(body.vencimiento)) return false;
-  if ('fechaRegistro' in body && !body.fechaRegistro.trim()) return false;
+  if ('fechaRegistro' in body && (!body.fechaRegistro.trim() || body.fechaRegistro.length > 30)) return false;
+  if ('abiertoEn' in body && body.abiertoEn !== '' && !/^\\d{4}-\\d{2}-\\d{2}$/.test(body.abiertoEn)) return false;
   if ('codigoBarras' in body && !/^(\d{8,14}|sin:[a-z0-9-]+)$/.test(body.codigoBarras)) return false;
   return true;
 }
@@ -120,8 +122,8 @@ async function handleResource(req, res, uid, resource) {
     }
     const now = FieldValue.serverTimestamp();
     const data = isShopping
-      ? { nombre: body.nombre.trim(), cantidad: body.cantidad, unidad: body.unidad, comprado: body.comprado, creadoEn: now, actualizadoEn: now }
-      : { ...body, ubicacion: body.ubicacion || 'Despensa', creadoEn: now };
+      ? { nombre: body.nombre.trim(), cantidad: body.cantidad, unidad: body.unidad, comprado: false, creadoEn: now, actualizadoEn: now }
+      : { ...body, ubicacion: body.ubicacion || 'Despensa', abiertoEn: body.abiertoEn || '', creadoEn: now };
     const created = await ref.add(data);
     return send(res, 201, { data: { id: created.id } });
   }
@@ -138,6 +140,12 @@ async function handleResource(req, res, uid, resource) {
     if (!snap.exists) return fail(res, 404, 'NOT_FOUND', 'No se encontró el registro.');
     if (!isShopping && ['codigoBarras','nombre','marca','categoria','formato','unidad'].some(k => k in body)) {
       return fail(res, 400, 'IDENTITY_IMMUTABLE', 'La identidad del producto no se puede cambiar; elimina el registro y agrégalo nuevamente.');
+    }
+    if (isShopping && Object.keys(body).some(k => k !== 'comprado')) {
+      return fail(res, 400, 'FIELDS_NOT_UPDATABLE', 'Solo se permite cambiar el estado comprado de un elemento.');
+    }
+    if (!isShopping && Object.keys(body).some(k => !['cantidad','vencimiento','ubicacion','abiertoEn'].includes(k))) {
+      return fail(res, 400, 'FIELDS_NOT_UPDATABLE', 'Solo se permite modificar cantidad, vencimiento, ubicación o fecha de apertura.');
     }
     await item.update({ ...body, ...(isShopping ? { actualizadoEn: FieldValue.serverTimestamp() } : {}) });
     return send(res, 200, { data: { id } });
