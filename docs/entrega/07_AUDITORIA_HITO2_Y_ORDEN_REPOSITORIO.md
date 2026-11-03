@@ -1,10 +1,10 @@
 # Auditoría Hito 2 y organización del repositorio
 
-Fecha de revisión: 2026-11-02
-Rama revisada: `revision-hito2-12-tareas`
+Fecha de revisión: 2026-11-03
+Rama revisada: `orden-repositorio-hito2` (base: `revision-hito2-12-tareas`)
 Base de evaluación: `INGT1003_Proyecto_Semestral_2026_2S.html` (Hito 2, ruta de trabajo, entregables y rúbrica).
 
-> Esta auditoría es estática. No ejecuta compilación, emuladores ni pruebas HTTP. No elimina ni mueve código. Los posibles duplicados se clasifican como candidatos que requieren comprobar todos sus consumidores antes de refactorizar.
+> Esta auditoría es estática. No se ejecutaron compilación, emuladores ni pruebas HTTP. En esta rama se eliminaron únicamente cuatro archivos de respaldo versionados de los manifiestos raíz (`package.json.antes-audit`, `package.json.respaldo-raiz`, `package-lock.json.antes-audit`, `package-lock.json.respaldo-raiz`); los manifiestos activos no se modificaron. No se movió código de la aplicación. Los posibles duplicados se clasifican como candidatos que requieren comprobar todos sus consumidores antes de refactorizar.
 
 ## 1. Ruta oficial del Hito 2 y estado de FrescApp
 
@@ -87,8 +87,9 @@ No conviene reubicar masivamente estos directorios durante el Hito 2: los import
 ### Documentación faltante o inconsistente
 - `docs/entrega/01_ARQUITECTURA_BACKEND.md` y `02_API_Y_DATOS.md` no existen en la rama inspeccionada (404).
 - Sí existen `03_PRUEBAS_Y_PENDIENTES.md`, `04_WEB_Y_SERVICIOS.md`, `05_REVISION_12_TAREAS_HITO2.md` y `06_API_REST_HITO2.md`.
-- `README.md` mantiene enlaces y descripción de Hito 1; falta una sección de instalación actual, entorno, comandos de prueba, emuladores, Functions, arquitectura real y enlaces a entregables Hito 2. También contiene un comentario HTML con una instrucción de reemplazo de prototipo que parece residual.
-- `package.json` tiene nombre `mi-app-local`, mientras Functions usa `frescapp-privacidad`; normalizar el nombre raíz es una mejora de bajo riesgo solo tras comprobar herramientas que lo consumen.
+- `README.md` se actualizó con estructura, instalación, comandos de verificación, enlaces a entregables y advertencia sobre el estado aún no validado de la API REST.
+- Se añadió `db/README.md` para documentar el modelo Firestore sin inventar un script SQL.
+- `package.json` mantiene el nombre `mi-app-local`; no se cambió porque no es necesario para ordenar carpetas y debe revisarse aparte.
 
 ## 4. Duplicaciones o solapamientos candidatos
 
@@ -116,18 +117,18 @@ La primera versión de `functions/api.js` requiere correcciones antes de cualqui
 
 ## 6. Plan de orden seguro
 
-### Fase A — inventario y clasificación (sin borrar)
-1. Confirmar árbol completo y rama por defecto.
-2. Clasificar archivos: runtime, configuración, tests, datos, documentación, herramientas, generados.
-3. Buscar imports/consumidores antes de marcar código como muerto.
-4. Comparar duplicaciones por comportamiento, no solo por nombres.
+### Fase A — inventario y clasificación
+1. Se consultó el árbol recursivo completo de la rama (211 entradas; respuesta no truncada).
+2. Se clasificaron carpetas y archivos principales: runtime, configuración, tests, datos, documentación y herramientas.
+3. Se detectaron cuatro manifiestos de respaldo que duplicaban versiones de los archivos activos; solo se eliminaron esos respaldos.
+4. La auditoría de referencias/consumidores de todos los archivos todavía no es exhaustiva; no se declaró código de aplicación como muerto.
+5. Las duplicaciones funcionales siguen siendo candidatos para revisión por comportamiento.
 
 ### Fase B — orden documental
-1. Crear `docs/entrega/01_ARQUITECTURA_BACKEND.md`.
-2. Crear `docs/entrega/02_API_Y_DATOS.md` desde el contrato que realmente se implemente.
-3. Crear `db/README.md` y diagrama de Firestore (sin SQL ficticio).
-4. Añadir colección Postman/Thunder Client exportada y cuatro solicitudes reproducibles.
-5. Actualizar README con instalación limpia, variables, emuladores, tests y estructura.
+1. README actualizado con instalación, estructura y comandos.
+2. Creado `db/README.md` con las colecciones observadas y el enfoque de aprovisionamiento Firestore.
+3. Pendiente: `docs/entrega/01_ARQUITECTURA_BACKEND.md` y `02_API_Y_DATOS.md` finales.
+4. Pendiente: colección Postman/Thunder Client exportada y cuatro solicitudes reproducibles.
 
 ### Fase C — refactor de código
 1. No borrar servicios cliente existentes por duplicación aparente.
@@ -141,4 +142,4 @@ Eliminar únicamente archivos demostrablemente sin imports, sin scripts, sin ref
 
 ## 7. Restricciones de esta auditoría
 
-No se borró ni movió ningún archivo. No se modificó `main`, no se desplegó Firebase y no se ejecutaron pruebas. La búsqueda de duplicados es preliminar: para declarar código muerto hace falta recorrer el árbol completo, referencias/imports y scripts. Esta auditoría no certifica que no existan secretos en el historial Git.
+No se modificó `main`, no se desplegó Firebase y no se ejecutaron pruebas. Se eliminaron únicamente cuatro archivos de respaldo de manifiestos en esta rama; no se eliminó código de la aplicación ni se movieron archivos funcionales. La búsqueda de duplicados es preliminar: para declarar código muerto hacen falta referencias/imports y scripts de ejecución completos. Esta auditoría no certifica que no existan secretos en el historial Git.
