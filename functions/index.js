@@ -3,7 +3,7 @@
 const { initializeApp } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onCall, onRequest, HttpsError } = require('firebase-functions/v2/https');
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { defineBoolean } = require('firebase-functions/params');
@@ -21,6 +21,9 @@ async function ignoreMissing(operation) {
 }
 const hogares = require('./hogares').crearGestorHogares({ db, FieldValue, Timestamp, HttpsError });
 exports.gestionarHogar = onCall(options, request => hogares.gestionar(request));
+// API REST propia para el Hito 2. Mantiene la persistencia actual en Firestore.
+exports.api = onRequest({ region: options.region, maxInstances: options.maxInstances },
+  require('./api').crearApiRest({ db, adminAuth }));
 const deletionDeps = {
   disableAndRevoke: async uid => {
     await ignoreMissing(() => adminAuth.updateUser(uid, { disabled: true }));
