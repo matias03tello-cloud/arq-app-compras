@@ -48,6 +48,10 @@ app-example
 !.env.example
 !functions/.env.example
 .runtimeconfig.json
+/package.json.antes-audit
+/package.json.respaldo-raiz
+/package-lock.json.antes-audit
+/package-lock.json.respaldo-raiz
 *credentials*.json
 *service-account*.json
 *serviceAccount*.json

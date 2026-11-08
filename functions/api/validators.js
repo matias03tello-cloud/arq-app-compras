@@ -109,6 +109,8 @@ function validarCompra(body) {
   exigir(!/[<>\n\r]/u.test(nombre), 'El nombre contiene caracteres no permitidos.');
   exigir(typeof d.cantidad === 'number' && Number.isFinite(d.cantidad) && d.cantidad > 0 && d.cantidad <= 999,
     'Cantidad debe ser un número entre 0 y 999.');
+  exigir(Number(d.cantidad.toFixed(3)) === d.cantidad,
+    'La cantidad admite hasta tres decimales.');
   exigir(UNIDADES.includes(d.unidad) && (d.unidad !== 'unidad' || Number.isInteger(d.cantidad)), 'Unidad o cantidad no válida.');
   return { nombre, cantidad:d.cantidad, unidad:d.unidad };
 }
