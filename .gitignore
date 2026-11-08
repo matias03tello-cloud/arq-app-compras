@@ -47,6 +47,8 @@ app-example
 .env.*
 !.env.example
 !functions/.env.example
+.runtimeconfig.json
+*credentials*.json
 *service-account*.json
 *serviceAccount*.json
 *firebase-adminsdk*.json

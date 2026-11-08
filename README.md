@@ -43,3 +43,10 @@ FrescApp es un proyecto universitario que ayuda a gestionar los alimentos del ho
 ## Estado del proyecto
 
 Proyecto universitario en desarrollo y pruebas en Android. El prototipo de Figma permite explorar la propuesta de navegación; la implementación de la aplicación se encuentra en este repositorio.
+
+## Backend del Hito 2
+
+- [Informe técnico del backend](./docs/hito2/BACKEND_HITO2.md)
+- [Informe técnico en PDF](./docs/hito2/FrescApp-Backend-Hito2.pdf)
+- [Modelo de datos Firestore](./db/MODELO_HITO2.md)
+- [Colección Postman para la demostración local](./docs/hito2/FrescApp-Hito2.postman_collection.json)

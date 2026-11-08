@@ -1,0 +1,338 @@
+{
+  "info": {
+    "_postman_id": "frescapp-hito2-rest-v1",
+    "name": "FrescApp — API REST Hito 2",
+    "description": "Demo local: crea una cuenta Auth Emulator, prepara datos sintéticos y ejecuta en orden el folder DEMO EN VIVO (POST, GET por ID, PATCH, DELETE). Incluye además operaciones completas para lista de compras. Requiere Firebase Emulator Suite.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:5001/demo-frescapp-hito2/southamerica-west1/api"
+    },
+    {
+      "key": "authUrl",
+      "value": "http://127.0.0.1:9099"
+    },
+    {
+      "key": "apiKey",
+      "value": "fake-api-key"
+    },
+    {
+      "key": "email",
+      "value": "hito2@frescapp.test"
+    },
+    {
+      "key": "password",
+      "value": ""
+    },
+    {
+      "key": "idToken",
+      "value": ""
+    },
+    {
+      "key": "uid",
+      "value": ""
+    },
+    {
+      "key": "inventarioId",
+      "value": ""
+    },
+    {
+      "key": "compraId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Crear cuenta local y guardar token",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"returnSecureToken\": true\n}"
+        },
+        "url": {
+          "raw": "{{authUrl}}/identitytoolkit.googleapis.com/v1/accounts:signUp?key={{apiKey}}",
+          "host": [
+            "{{authUrl}}"
+          ],
+          "path": [
+            "identitytoolkit.googleapis.com",
+            "v1",
+            "accounts:signUp"
+          ],
+          "query": [
+            {
+              "key": "key",
+              "value": "{{apiKey}}"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "if (data.idToken) pm.collectionVariables.set('idToken', data.idToken);",
+              "if (data.localId) pm.collectionVariables.set('uid', data.localId);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "1–4. DEMO EN VIVO — CRUD de inventario",
+      "description": "Ejecuta estas cuatro solicitudes en orden después de crear la cuenta local y preparar los datos sintéticos. El POST guarda inventarioId automáticamente; las otras tres usan ese ID.",
+      "item": [
+        {
+          "name": "1. POST inventario (crear)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"codigoBarras\": \"sin:manzana\",\r\n  \"nombre\": \"Manzana\",\r\n  \"marca\": \"Sin marca\",\r\n  \"categoria\": \"Frutas\",\r\n  \"formato\": \"A granel\",\r\n  \"unidad\": \"unidad\",\r\n  \"cantidad\": 2,\r\n  \"vencimiento\": \"Sin fecha\",\r\n  \"ubicacion\": \"Refrigerador\"\r\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/inventario",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "inventario"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const data = pm.response.json();",
+                  "if (data.data && data.data.id) pm.collectionVariables.set('inventarioId', data.data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. GET inventario por ID (leer)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/inventario/{{inventarioId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "inventario",
+                "{{inventarioId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "3. PATCH inventario (actualizar)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cantidad\": 3,\n  \"ubicacion\": \"Despensa\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/inventario/{{inventarioId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "inventario",
+                "{{inventarioId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "4. DELETE inventario (borrar)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/inventario/{{inventarioId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "inventario",
+                "{{inventarioId}}"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Lista de compras — crear",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nombre\": \"Arroz para la semana\",\n  \"cantidad\": 2,\n  \"unidad\": \"unidad\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/lista-compras",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "lista-compras"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const data = pm.response.json();",
+              "if (data.data && data.data.id) pm.collectionVariables.set('compraId', data.data.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Lista de compras — leer colección",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/v1/lista-compras?limit=50",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "lista-compras"
+          ],
+          "query": [
+            {
+              "key": "limit",
+              "value": "50"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "8. Lista de compras — leer registro",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/v1/lista-compras/{{compraId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "lista-compras",
+            "{{compraId}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "9. Lista de compras — actualizar",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"cantidad\": 3,\n  \"comprado\": true\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/v1/lista-compras/{{compraId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "lista-compras",
+            "{{compraId}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "10. Lista de compras — borrar",
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/v1/lista-compras/{{compraId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "v1",
+            "lista-compras",
+            "{{compraId}}"
+          ]
+        }
+      }
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{idToken}}",
+        "type": "string"
+      }
+    ]
+  }
+}
