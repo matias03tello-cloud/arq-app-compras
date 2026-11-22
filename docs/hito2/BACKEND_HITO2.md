@@ -162,7 +162,7 @@ Las respuestas de error usan `{ "error": { "code": "...", "message": "..." } }`.
 
 El detalle del modelo está en el [modelo de datos](../../db/MODELO_HITO2.md). La API guarda datos en subcolecciones privadas `usuarios/{uid}/inventario` y `usuarios/{uid}/listaCompras`; el servidor asigna los identificadores y las marcas de tiempo. Como el Admin SDK no está limitado por las reglas de los SDK cliente, la API verifica identidad, deriva el UID del token y valida las entradas en el servidor.
 
-Cloud Functions usa Application Default Credentials en producción; en local, Functions Emulator conecta los servicios emulados y la demostración no necesita una clave de cuenta de servicio (Firebase, s. f.-b). `.env.example` contiene valores públicos opcionales del cliente Expo. `functions/.env.example` contiene solo el parámetro no secreto `ENFORCE_APP_CHECK` del servidor. Ambos ejemplos se copian a archivos locales ignorados por Git. No se distribuye un JSON de cuenta de servicio ni se guarda una clave privada en `EXPO_PUBLIC_*`.
+Cloud Functions usa Application Default Credentials en producción; en local, Functions Emulator conecta los servicios emulados y la demostración no necesita una clave de cuenta de servicio (Firebase, s. f.-b). El `.env.example` de la raíz reúne las variables públicas opcionales de Expo y valores sintéticos no secretos para Hito 2: `ENFORCE_APP_CHECK`, `GCLOUD_PROJECT` y `FIRESTORE_EMULATOR_HOST`. Las dos últimas se usan al ejecutar el script de preparación desde una terminal y apuntan únicamente al emulador local. Firebase CLI carga la configuración local de Functions desde `functions/.env`; para crear ese archivo se copia `functions/.env.example`, que contiene el parámetro no secreto `ENFORCE_APP_CHECK`. Los archivos `.env.local` y `functions/.env` se excluyen de Git. No se distribuye un JSON de cuenta de servicio ni se guarda una clave privada en `EXPO_PUBLIC_*`.
 
 ## 7. Instalación y demostración local
 
@@ -175,7 +175,7 @@ npm ci --prefix functions
 npx firebase emulators:start --only auth,firestore,functions --project demo-frescapp-hito2
 ```
 
-La configuración raíz solo se necesita si también se ejecuta el cliente Expo. Crear `.env.local` desde el ejemplo únicamente cuando aún no exista:
+El `.env.example` raíz sirve como referencia de configuración pública de Expo y de los valores locales de ejemplo para Hito 2. Para el cliente, crear `.env.local` únicamente cuando aún no exista. Firebase Functions no carga el archivo raíz: usa `functions/.env`, creado desde su propio ejemplo. Los valores `GCLOUD_PROJECT` y `FIRESTORE_EMULATOR_HOST` del ejemplo se asignan explícitamente en la terminal al preparar datos para el emulador:
 
 ```powershell
 if (-not (Test-Path '.env.local')) { Copy-Item '.env.example' '.env.local' }
