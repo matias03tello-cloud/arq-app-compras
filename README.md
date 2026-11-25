@@ -14,9 +14,8 @@ FrescApp es un proyecto universitario que ayuda a gestionar los alimentos del ho
 
 ##  Enlaces y entregables
 
-**Prototipo navegable (Figma):** [text](https://www.figma.com/proto/HFcCmtUFEpJPL2AxcL89Ll/Sin-t%C3%ADtulo?node-id=3-17&p=f&t=1ukiLqVDBpX9yR0k-1&scaling=scale-down&content-scaling=fixed&page-id=3%3A13&starting-point-node-id=3%3A17&show-proto-sidebar=1)
+**Prototipo navegable (Figma):** [Abrir prototipo](https://www.figma.com/proto/HFcCmtUFEpJPL2AxcL89Ll/Sin-t%C3%ADtulo?node-id=3-17&p=f&t=1ukiLqVDBpX9yR0k-1&scaling=scale-down&content-scaling=fixed&page-id=3%3A13&starting-point-node-id=3%3A17&show-proto-sidebar=1)
 
-<!-- Reemplaza la línea anterior por: **Prototipo navegable (Figma):** [Abrir prototipo](URL_REAL_DEL_PROTOTIPO) -->
 
 | Entregable | Enlace |
 | --- | --- |
